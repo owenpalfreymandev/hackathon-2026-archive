@@ -16,7 +16,6 @@ import {
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import type { Coordinates } from "@/lib/coordinates"
-import { parseGoogleMapsCoordinates } from "@/lib/coordinates"
 import { formatPounds } from "@/lib/parking"
 import { createClient } from "@/lib/supabase/client"
 
@@ -50,12 +49,33 @@ function toDateTimeLocal(value?: string): string {
   return localDate.toISOString().slice(0, 16)
 }
 
+function getSpaceCoordinates(
+  space: BookSpaceFormProps["space"]
+): Coordinates | null {
+  const lat = Number(space.latitude)
+  const lng = Number(space.longitude)
+
+  if (
+    !Number.isFinite(lat) ||
+    !Number.isFinite(lng) ||
+    lat < -90 ||
+    lat > 90 ||
+    lng < -180 ||
+    lng > 180
+  ) {
+    return null
+  }
+
+  return { lat, lng }
+}
+
 export function BookSpaceForm({
   space,
   initialStartsAt,
   initialEndsAt,
   initialBookingMode,
 }: BookSpaceFormProps) {
+  const router = useRouter()
   const supportedInitialMode =
     initialBookingMode === "hourly" &&
     (space.pricingType === "hourly" || space.pricingType === "both")
