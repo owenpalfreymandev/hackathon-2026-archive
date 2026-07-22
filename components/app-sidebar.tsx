@@ -4,7 +4,7 @@ import * as React from "react"
 import Link from "next/link"
 
 import { NavMain } from "@/components/nav-main"
-import { NavProjects } from "@/components/nav-projects"
+//import { NavProjects } from "@/components/nav-projects"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -22,120 +22,13 @@ import { dashboardLinks } from "@/lib/dashboard"
 const data = {
   navMain: [
     {
-      title: "Parking",
-      url: dashboardLinks.findSpaces,
-      icon: (
-        <MapIcon />
+      title: "Register Space",
+      url: "/dashboard/register-space",
+      icon:(
+        <MapIcon/>
       ),
-      isActive: true,
-      items: [
-        {
-          title: "Find spaces",
-          url: dashboardLinks.findSpaces,
-        },
-        {
-          title: "Register a space",
-          url: dashboardLinks.registerSpace,
-        },
-      ],
     },
-    {
-      title: "Playground",
-      url: dashboardLinks.playground,
-      icon: (
-        <TerminalSquareIcon
-        />
-      ),
-      isActive: true,
-      items: [
-        {
-          title: "History",
-          url: dashboardLinks.playgroundHistory,
-        },
-        {
-          title: "Starred",
-          url: dashboardLinks.playgroundStarred,
-        },
-        {
-          title: "Settings",
-          url: dashboardLinks.playgroundSettings,
-        },
-      ],
-    },
-    {
-      title: "Models",
-      url: dashboardLinks.models,
-      icon: (
-        <BotIcon
-        />
-      ),
-      items: [
-        {
-          title: "Genesis",
-          url: dashboardLinks.modelsGenesis,
-        },
-        {
-          title: "Explorer",
-          url: dashboardLinks.modelsExplorer,
-        },
-        {
-          title: "Quantum",
-          url: dashboardLinks.modelsQuantum,
-        },
-      ],
-    },
-    {
-      title: "Documentation",
-      url: dashboardLinks.documentation,
-      icon: (
-        <BookOpenIcon
-        />
-      ),
-      items: [
-        {
-          title: "Introduction",
-          url: dashboardLinks.documentationIntroduction,
-        },
-        {
-          title: "Get Started",
-          url: dashboardLinks.documentationGetStarted,
-        },
-        {
-          title: "Tutorials",
-          url: dashboardLinks.documentationTutorials,
-        },
-        {
-          title: "Changelog",
-          url: dashboardLinks.documentationChangelog,
-        },
-      ],
-    },
-    {
-      title: "Settings",
-      url: dashboardLinks.settings,
-      icon: (
-        <Settings2Icon
-        />
-      ),
-      items: [
-        {
-          title: "General",
-          url: dashboardLinks.settingsGeneral,
-        },
-        {
-          title: "Team",
-          url: dashboardLinks.settingsTeam,
-        },
-        {
-          title: "Billing",
-          url: dashboardLinks.settingsBilling,
-        },
-        {
-          title: "Limits",
-          url: dashboardLinks.settingsLimits,
-        },
-      ],
-    },
+
   ],
   navSecondary: [
     {
@@ -151,32 +44,6 @@ const data = {
       url: "#",
       icon: (
         <SendIcon
-        />
-      ),
-    },
-  ],
-  projects: [
-    {
-      name: "Design Engineering",
-      url: dashboardLinks.projectDesignEngineering,
-      icon: (
-        <FrameIcon
-        />
-      ),
-    },
-    {
-      name: "Sales & Marketing",
-      url: dashboardLinks.projectSalesMarketing,
-      icon: (
-        <PieChartIcon
-        />
-      ),
-    },
-    {
-      name: "Travel",
-      url: dashboardLinks.projectTravel,
-      icon: (
-        <MapIcon
         />
       ),
     },
@@ -214,7 +81,6 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavProjects projects={data.projects} />
         <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
