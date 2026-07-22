@@ -8,7 +8,12 @@ import {
 import { createClient } from "@/lib/supabase/server"
 
 type BookSpacePageProps = {
-  searchParams: Promise<{ spaceId?: string | string[] }>
+  searchParams: Promise<{
+    spaceId?: string | string[]
+    startsAt?: string | string[]
+    endsAt?: string | string[]
+    mode?: string | string[]
+  }>
 }
 
 export default async function BookSpacePage({
@@ -19,6 +24,15 @@ export default async function BookSpacePage({
     ? params.spaceId[0]
     : params.spaceId
   const spaceId = Number(rawSpaceId)
+  const initialStartsAt = Array.isArray(params.startsAt)
+    ? params.startsAt[0]
+    : params.startsAt
+  const initialEndsAt = Array.isArray(params.endsAt)
+    ? params.endsAt[0]
+    : params.endsAt
+  const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode
+  const initialBookingMode =
+    rawMode === "fixed" || rawMode === "hourly" ? rawMode : undefined
 
   if (!Number.isSafeInteger(spaceId) || spaceId <= 0) {
     return (
@@ -72,6 +86,9 @@ export default async function BookSpacePage({
           fixedPrice: space.fixed_price,
           hourlyPrice: space.hourly_price,
         }}
+        initialStartsAt={initialStartsAt}
+        initialEndsAt={initialEndsAt}
+        initialBookingMode={initialBookingMode}
       />
     </div>
   )

@@ -30,14 +30,40 @@ type BookSpaceFormProps = {
     fixedPrice: number | null
     hourlyPrice: number | null
   }
+  initialStartsAt?: string
+  initialEndsAt?: string
+  initialBookingMode?: BookingMode
 }
 
-export function BookSpaceForm({ space }: BookSpaceFormProps) {
+function toDateTimeLocal(value?: string): string {
+  if (!value) return ""
+
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return ""
+
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 16)
+}
+
+export function BookSpaceForm({
+  space,
+  initialStartsAt,
+  initialEndsAt,
+  initialBookingMode,
+}: BookSpaceFormProps) {
+  const supportedInitialMode =
+    initialBookingMode === "hourly" &&
+    (space.pricingType === "hourly" || space.pricingType === "both")
+      ? "hourly"
+      : initialBookingMode === "fixed" &&
+          (space.pricingType === "fixed" || space.pricingType === "both")
+        ? "fixed"
+        : null
   const defaultMode: BookingMode =
-    space.pricingType === "hourly" ? "hourly" : "fixed"
+    supportedInitialMode ?? (space.pricingType === "hourly" ? "hourly" : "fixed")
   const [bookingMode, setBookingMode] = useState<BookingMode>(defaultMode)
-  const [startsAt, setStartsAt] = useState("")
-  const [endsAt, setEndsAt] = useState("")
+  const [startsAt, setStartsAt] = useState(() => toDateTimeLocal(initialStartsAt))
+  const [endsAt, setEndsAt] = useState(() => toDateTimeLocal(initialEndsAt))
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
@@ -61,7 +87,7 @@ export function BookSpaceForm({ space }: BookSpaceFormProps) {
       return null
     }
 
-    return Math.ceil(durationHours * 4) / 4 * space.hourlyPrice
+    return (Math.ceil(durationHours * 4) / 4) * space.hourlyPrice
   }, [bookingMode, durationHours, space.fixedPrice, space.hourlyPrice])
 
   const handleSubmit = async (event: FormEvent) => {
@@ -109,6 +135,31 @@ export function BookSpaceForm({ space }: BookSpaceFormProps) {
         throw new Error("You cannot book your own parking space.")
       }
 
+      const { data: availabilityRows, error: availabilityError } = await supabase.rpc(
+        "search_space_availability",
+        {
+          p_starts_at: start.toISOString(),
+          p_ends_at: end.toISOString(),
+        }
+      )
+
+      if (availabilityError) throw availabilityError
+
+      const availability = (
+        (availabilityRows ?? []) as Array<{
+          space_id: number
+          is_available: boolean
+          availability_reason: string | null
+        }>
+      ).find((row) => Number(row.space_id) === space.id)
+
+      if (!availability?.is_available) {
+        throw new Error(
+          availability?.availability_reason ??
+            "This space is no longer available for those times."
+        )
+      }
+
       const { data, error: insertError } = await supabase
         .from("bookings")
         .insert({
@@ -125,7 +176,10 @@ export function BookSpaceForm({ space }: BookSpaceFormProps) {
 
       if (insertError) {
         if (insertError.code === "23P01") {
-          throw new Error("That space is already booked during those times.")
+          throw new Error("That space was just booked during those times.")
+        }
+        if (insertError.message.toLowerCase().includes("availability")) {
+          throw new Error("That booking falls outside the host's available hours.")
         }
         throw insertError
       }
