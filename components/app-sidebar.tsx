@@ -42,6 +42,13 @@ const data = {
         <CarIcon/>
       ),
     },
+    {
+      title: "My Bookings",
+      url: "/dashboard/my-bookings",
+      icon:(
+        <BookOpenIcon/>
+      ),
+    },
   ],
   navSecondary: [
     {
