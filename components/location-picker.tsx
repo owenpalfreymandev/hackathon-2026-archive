@@ -14,8 +14,10 @@ export type LocationMarker = {
   id: string
   lat: number
   lng: number
-  colour?: "red" | "blue"
+  colour?: "red" | "blue" | "amber"
   title?: string
+  label?: string
+  disabled?: boolean
 }
 
 type LocationPickerProps = {
@@ -87,6 +89,15 @@ declare global {
   }
 }
 
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;")
+}
+
 function loadLeaflet(): Promise<LeafletModule> {
   if (window.L) {
     return Promise.resolve(window.L)
@@ -130,24 +141,37 @@ function loadLeaflet(): Promise<LeafletModule> {
 
 function createPinIcon(
   L: LeafletModule,
-  colour: "red" | "blue" | "green"
+  colour: "red" | "blue" | "green" | "amber",
+  label?: string,
+  disabled = false
 ) {
   const colourValue = {
     red: "#dc2626",
     blue: "#2563eb",
     green: "#16a34a",
+    amber: "#d97706",
   }[colour]
+
+  const safeLabel = label ? escapeHtml(label) : null
+  const iconWidth = safeLabel ? 112 : 36
+  const iconHeight = safeLabel ? 62 : 36
+  const opacity = disabled ? 0.68 : 1
 
   return L.divIcon({
     className: "",
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;color:${colourValue};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
-      <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="1.5" aria-hidden="true">
+    html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:${iconWidth}px;height:${iconHeight}px;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.32));">
+      ${
+        safeLabel
+          ? `<div style="white-space:nowrap;border:2px solid ${colourValue};border-radius:999px;background:white;color:#111827;padding:2px 7px;font:700 12px/1.25 system-ui,sans-serif;margin-bottom:-2px;">${safeLabel}</div>`
+          : ""
+      }
+      <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="${colourValue}" stroke="white" stroke-width="1.5" aria-hidden="true">
         <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
         <circle cx="12" cy="10" r="3" fill="white"/>
       </svg>
     </div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 34],
+    iconSize: [iconWidth, iconHeight],
+    iconAnchor: [iconWidth / 2, iconHeight],
   })
 }
 
@@ -195,7 +219,7 @@ export function LocationPicker({
       return
     }
 
-    map.fitBounds(points, { padding: [36, 36], maxZoom: PIN_MAP_ZOOM })
+    map.fitBounds(points, { padding: [52, 52], maxZoom: PIN_MAP_ZOOM })
   }
 
   const placeSearchMarker = (lat: number, lng: number, map: LeafletMap) => {
@@ -235,14 +259,21 @@ export function LocationPicker({
     for (const markerData of markersRef.current) {
       const marker = L.marker([markerData.lat, markerData.lng], {
         draggable: false,
-        icon: createPinIcon(L, markerData.colour ?? "red"),
+        icon: createPinIcon(
+          L,
+          markerData.colour ?? "red",
+          markerData.label,
+          markerData.disabled
+        ),
         title: markerData.title ?? "Parking space",
         alt: markerData.title ?? "Parking space",
       }).addTo(map)
 
-      marker.on("click", () => {
-        onMarkerClickRef.current?.(markerData.id)
-      })
+      if (!markerData.disabled) {
+        marker.on("click", () => {
+          onMarkerClickRef.current?.(markerData.id)
+        })
+      }
 
       spaceMarkersRef.current.set(markerData.id, marker)
     }
@@ -344,7 +375,7 @@ export function LocationPicker({
       <div className="relative overflow-hidden rounded-md border">
         <div
           ref={containerRef}
-          className="h-80 w-full [&_.leaflet-control-attribution]:text-[10px]"
+          className="h-96 w-full [&_.leaflet-control-attribution]:text-[10px]"
         />
         {!value && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
@@ -356,13 +387,17 @@ export function LocationPicker({
       </div>
 
       {value ? (
-        <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <MapPinIcon className="size-4 shrink-0 text-green-600" />
-          {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+          <span className="flex items-center gap-1.5">
+            <MapPinIcon className="size-4 shrink-0 text-green-600" />
+            {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
+          </span>
           {markers.length > 0 && (
-            <span className="ml-2">Green: you · Red: available · Blue: selected</span>
+            <span>
+              Green: destination · Red: available · Blue: selected · Amber: unavailable
+            </span>
           )}
-        </p>
+        </div>
       ) : (
         <p className="text-sm text-muted-foreground">
           Drag the green pin or click the map to choose your search point.

@@ -4,7 +4,10 @@ import dynamic from "next/dynamic"
 import { useMemo, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import {
+  AlertTriangleIcon,
+  CalendarClockIcon,
   CarFrontIcon,
+  ClockIcon,
   LocateFixedIcon,
   MapPinIcon,
   NavigationIcon,
@@ -51,6 +54,8 @@ const LocationPicker = dynamic(
   }
 )
 
+type PricingMode = "fixed" | "hourly"
+
 type SpaceRow = {
   id: number
   space_name: string
@@ -64,9 +69,24 @@ type SpaceRow = {
   user_id: string
 }
 
+type AvailabilityRow = {
+  space_id: number
+  is_available: boolean
+  availability_reason: string | null
+}
+
+type PriceQuote = {
+  mode: PricingMode
+  total: number
+  effectiveHourly: number
+}
+
 type NearbySpace = SpaceRow & {
   coordinates: Coordinates
   distanceKm: number
+  isAvailable: boolean
+  availabilityReason: string | null
+  quote: PriceQuote | null
 }
 
 type GeocodeResult = {
@@ -76,24 +96,76 @@ type GeocodeResult = {
   lng: number
 }
 
-function getSpacePriceLabel(space: SpaceRow): string {
-  const labels: string[] = []
+function getDurationHours(startsAt: Date, endsAt: Date): number {
+  return (endsAt.getTime() - startsAt.getTime()) / 3_600_000
+}
+
+function getPriceQuote(space: SpaceRow, durationHours: number): PriceQuote | null {
+  const quotes: PriceQuote[] = []
 
   if (
     (space.pricing_type === "hourly" || space.pricing_type === "both") &&
-    space.hourly_price !== null
+    space.hourly_price !== null &&
+    space.hourly_price > 0
   ) {
-    labels.push(`${formatPounds(space.hourly_price)}/hr`)
+    const billedHours = Math.ceil(durationHours * 4) / 4
+    quotes.push({
+      mode: "hourly",
+      total: billedHours * space.hourly_price,
+      effectiveHourly: space.hourly_price,
+    })
   }
 
   if (
     (space.pricing_type === "fixed" || space.pricing_type === "both") &&
-    space.fixed_price !== null
+    space.fixed_price !== null &&
+    space.fixed_price > 0
   ) {
-    labels.push(`${formatPounds(space.fixed_price)} fixed`)
+    quotes.push({
+      mode: "fixed",
+      total: space.fixed_price,
+      effectiveHourly: space.fixed_price / durationHours,
+    })
   }
 
-  return labels.length > 0 ? labels.join(" · ") : "Price unavailable"
+  return (
+    quotes.sort((first, second) => first.total - second.total)[0] ?? null
+  )
+}
+
+function getMapPriceLabel(space: NearbySpace): string {
+  if (!space.quote) return "No price"
+
+  const suffix = space.quote.mode === "fixed" ? "/hr eq." : "/hr"
+  return `${formatPounds(space.quote.effectiveHourly)}${suffix}`
+}
+
+function getPriceDetail(space: NearbySpace): string {
+  if (!space.quote) return "Price unavailable"
+
+  const suffix = space.quote.mode === "fixed" ? "fixed rate" : "for your stay"
+  return `${formatPounds(space.quote.total)} ${suffix}`
+}
+
+function buildRequestedTimes(
+  bookingDate: string,
+  startTime: string,
+  endTime: string
+): { startsAt: Date; endsAt: Date } | null {
+  if (!bookingDate || !startTime || !endTime) return null
+
+  const startsAt = new Date(`${bookingDate}T${startTime}`)
+  const endsAt = new Date(`${bookingDate}T${endTime}`)
+
+  if (
+    !Number.isFinite(startsAt.getTime()) ||
+    !Number.isFinite(endsAt.getTime()) ||
+    endsAt <= startsAt
+  ) {
+    return null
+  }
+
+  return { startsAt, endsAt }
 }
 
 export function FindSpacesForm() {
@@ -103,34 +175,65 @@ export function FindSpacesForm() {
   const [isSearchingAddress, setIsSearchingAddress] = useState(false)
   const [coordinateInput, setCoordinateInput] = useState("")
   const [location, setLocation] = useState<Coordinates | null>(null)
-  const [nearbySpaces, setNearbySpaces] = useState<NearbySpace[]>([])
+  const [bookingDate, setBookingDate] = useState("")
+  const [startTime, setStartTime] = useState("")
+  const [endTime, setEndTime] = useState("")
+  const [availableSpaces, setAvailableSpaces] = useState<NearbySpace[]>([])
+  const [unavailableSpaces, setUnavailableSpaces] = useState<NearbySpace[]>([])
   const [selectedSpaceId, setSelectedSpaceId] = useState<number | null>(null)
   const [isLocating, setIsLocating] = useState(false)
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  const requestedTimes = useMemo(
+    () => buildRequestedTimes(bookingDate, startTime, endTime),
+    [bookingDate, startTime, endTime]
+  )
+
   const selectedSpace =
-    nearbySpaces.find((space) => space.id === selectedSpaceId) ?? null
+    availableSpaces.find((space) => space.id === selectedSpaceId) ?? null
 
   const mapMarkers = useMemo<LocationMarker[]>(
-    () =>
-      nearbySpaces.map((space) => ({
+    () => [
+      ...availableSpaces.map((space) => ({
         id: String(space.id),
         lat: space.coordinates.lat,
         lng: space.coordinates.lng,
-        colour: space.id === selectedSpaceId ? "blue" : "red",
-        title: `${space.space_name} — ${getSpacePriceLabel(space)}`,
+        colour: space.id === selectedSpaceId ? ("blue" as const) : ("red" as const),
+        label: getMapPriceLabel(space),
+        title: `${space.space_name} — ${getPriceDetail(space)} — ${formatDistance(space.distanceKm)}`,
       })),
-    [nearbySpaces, selectedSpaceId]
+      ...unavailableSpaces.map((space) => ({
+        id: `unavailable-${space.id}`,
+        lat: space.coordinates.lat,
+        lng: space.coordinates.lng,
+        colour: "amber" as const,
+        label: getMapPriceLabel(space),
+        title: `${space.space_name} — ${space.availabilityReason ?? "Unavailable at your selected time"}`,
+        disabled: true,
+      })),
+    ],
+    [availableSpaces, unavailableSpaces, selectedSpaceId]
   )
+
+  const resetResults = () => {
+    setAvailableSpaces([])
+    setUnavailableSpaces([])
+    setSelectedSpaceId(null)
+    setHasSearched(false)
+  }
 
   const updateLocation = (coordinates: Coordinates) => {
     setLocation(coordinates)
-    setNearbySpaces([])
-    setSelectedSpaceId(null)
-    setHasSearched(false)
+    resetResults()
     setAddressResults([])
+    setError(null)
+  }
+
+  const updateAvailabilityInput = (setter: (value: string) => void, value: string) => {
+    setter(value)
+    resetResults()
     setError(null)
   }
 
@@ -216,6 +319,11 @@ export function FindSpacesForm() {
       return
     }
 
+    if (!requestedTimes) {
+      setError("Choose a valid date, start time and end time before searching.")
+      return
+    }
+
     setIsLoadingSpaces(true)
     setHasSearched(false)
     setSelectedSpaceId(null)
@@ -223,16 +331,39 @@ export function FindSpacesForm() {
 
     try {
       const supabase = createClient()
-      const { data, error: queryError } = await supabase
-        .from("spaces")
-        .select(
-          "id, space_name, description, latitude, longitude, pricing_type, fixed_price, hourly_price, photo_url, user_id"
-        )
-        .limit(1000)
+      const [spacesResult, availabilityResult, userResult] = await Promise.all([
+        supabase
+          .from("spaces")
+          .select(
+            "id, space_name, description, latitude, longitude, pricing_type, fixed_price, hourly_price, photo_url, user_id"
+          )
+          .limit(1000),
+        supabase.rpc("search_space_availability", {
+          p_starts_at: requestedTimes.startsAt.toISOString(),
+          p_ends_at: requestedTimes.endsAt.toISOString(),
+        }),
+        supabase.auth.getUser(),
+      ])
 
-      if (queryError) throw queryError
+      if (spacesResult.error) throw spacesResult.error
+      if (availabilityResult.error) throw availabilityResult.error
 
-      const nearest = ((data ?? []) as SpaceRow[])
+      const availabilityBySpace = new Map<number, AvailabilityRow>()
+      for (const row of (availabilityResult.data ?? []) as AvailabilityRow[]) {
+        availabilityBySpace.set(Number(row.space_id), {
+          ...row,
+          space_id: Number(row.space_id),
+        })
+      }
+
+      const durationHours = getDurationHours(
+        requestedTimes.startsAt,
+        requestedTimes.endsAt
+      )
+      const currentUserId = userResult.data.user?.id ?? null
+
+      const candidates = ((spacesResult.data ?? []) as SpaceRow[])
+        .filter((space) => space.user_id !== currentUserId)
         .map((space) => {
           const latitude = Number(space.latitude)
           const longitude = Number(space.longitude)
@@ -242,22 +373,40 @@ export function FindSpacesForm() {
           }
 
           const coordinates = { lat: latitude, lng: longitude }
+          const availability = availabilityBySpace.get(Number(space.id))
 
           return {
             ...space,
+            id: Number(space.id),
             coordinates,
             distanceKm: distanceBetweenKm(location, coordinates),
+            isAvailable: availability?.is_available ?? false,
+            availabilityReason: availability
+              ? availability.availability_reason
+              : "Availability could not be confirmed",
+            quote: getPriceQuote(space, durationHours),
           }
         })
-        .filter((space): space is NearbySpace => space !== null)
+        .filter((space): space is NearbySpace => space !== null && space.quote !== null)
         .sort((first, second) => first.distanceKm - second.distanceKm)
+
+      const nearestAvailable = candidates
+        .filter((space) => space.isAvailable)
+        .slice(0, 5)
+      const nearestUnavailable = candidates
+        .filter((space) => !space.isAvailable)
         .slice(0, 5)
 
-      setNearbySpaces(nearest)
+      setAvailableSpaces(nearestAvailable)
+      setUnavailableSpaces(nearestUnavailable)
       setHasSearched(true)
 
-      if (nearest.length === 0) {
-        setError("No valid parking spaces are currently available.")
+      if (nearestAvailable.length === 0) {
+        setError(
+          nearestUnavailable.length > 0
+            ? "No nearby spaces are free for that time. Amber pins show the closest alternatives that are unavailable."
+            : "No valid parking spaces were found near that location."
+        )
       }
     } catch (caughtError) {
       setError(
@@ -270,14 +419,27 @@ export function FindSpacesForm() {
     }
   }
 
+  const openBooking = (space: NearbySpace) => {
+    if (!requestedTimes || !space.quote) return
+
+    const params = new URLSearchParams({
+      spaceId: String(space.id),
+      startsAt: requestedTimes.startsAt.toISOString(),
+      endsAt: requestedTimes.endsAt.toISOString(),
+      mode: space.quote.mode,
+    })
+
+    router.push(`/dashboard/book-space?${params.toString()}`)
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
       <Card>
         <CardHeader>
           <CardTitle className="text-xl">Find a parking space</CardTitle>
           <CardDescription>
-            Choose where you are travelling to, then compare the five nearest
-            listed spaces.
+            Choose your destination and the exact time you need it. Prices and
+            availability are then compared directly on the map.
           </CardDescription>
         </CardHeader>
 
@@ -363,15 +525,70 @@ export function FindSpacesForm() {
             onMarkerClick={(id) => setSelectedSpaceId(Number(id))}
           />
 
+          {location && (
+            <div className="rounded-2xl border bg-muted/30 p-4">
+              <div className="mb-4 flex items-start gap-3">
+                <CalendarClockIcon className="mt-0.5 size-5 text-primary" />
+                <div>
+                  <h2 className="font-semibold">When do you need the space?</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Only spaces free for this entire period will be selectable.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <Field>
+                  <FieldLabel htmlFor="booking-date">Date</FieldLabel>
+                  <Input
+                    id="booking-date"
+                    type="date"
+                    value={bookingDate}
+                    onChange={(event) =>
+                      updateAvailabilityInput(setBookingDate, event.target.value)
+                    }
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="start-time">From</FieldLabel>
+                  <Input
+                    id="start-time"
+                    type="time"
+                    step={900}
+                    value={startTime}
+                    onChange={(event) =>
+                      updateAvailabilityInput(setStartTime, event.target.value)
+                    }
+                    required
+                  />
+                </Field>
+                <Field>
+                  <FieldLabel htmlFor="end-time">Until</FieldLabel>
+                  <Input
+                    id="end-time"
+                    type="time"
+                    step={900}
+                    value={endTime}
+                    onChange={(event) =>
+                      updateAvailabilityInput(setEndTime, event.target.value)
+                    }
+                    required
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
+
           <div className="flex justify-end">
             <Button
               type="button"
               size="lg"
               onClick={handleFindSpaces}
-              disabled={!location || isLoadingSpaces}
+              disabled={!location || !requestedTimes || isLoadingSpaces}
             >
               <NavigationIcon />
-              {isLoadingSpaces ? "Finding spaces…" : "Find nearest spaces"}
+              {isLoadingSpaces ? "Checking availability…" : "Find available spaces"}
             </Button>
           </div>
 
@@ -380,99 +597,128 @@ export function FindSpacesForm() {
               {error}
             </p>
           )}
+
+          {hasSearched && availableSpaces.length > 0 && (
+            <div className="rounded-2xl border bg-background p-4">
+              <div className="mb-3 flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-semibold">Available at your time</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Compare the price bubbles on the red pins, then select one.
+                  </p>
+                </div>
+                <span className="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-200">
+                  {availableSpaces.length} available
+                </span>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                {availableSpaces.map((space) => {
+                  const isSelected = space.id === selectedSpaceId
+
+                  return (
+                    <button
+                      key={space.id}
+                      type="button"
+                      className={cn(
+                        "rounded-xl border p-3 text-left transition-colors hover:bg-muted",
+                        isSelected && "border-primary bg-primary/5 ring-1 ring-primary"
+                      )}
+                      onClick={() => setSelectedSpaceId(space.id)}
+                    >
+                      <p className="truncate text-sm font-semibold">
+                        {space.space_name}
+                      </p>
+                      <p className="mt-1 text-lg font-bold">
+                        {getMapPriceLabel(space)}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {getPriceDetail(space)} · {formatDistance(space.distanceKm)}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {hasSearched && nearbySpaces.length > 0 && (
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-xl font-semibold">Nearest spaces</h2>
-            <p className="text-sm text-muted-foreground">
-              Select a result card or its marker on the map.
-            </p>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {nearbySpaces.map((space) => {
-              const isSelected = space.id === selectedSpaceId
-
-              return (
-                <Card
-                  key={space.id}
-                  className={cn(
-                    "cursor-pointer transition-[box-shadow,transform] hover:-translate-y-0.5",
-                    isSelected && "ring-2 ring-primary"
-                  )}
-                  onClick={() => setSelectedSpaceId(space.id)}
-                >
-                  <img
-                    src={space.photo_url}
-                    alt={space.space_name}
-                    className="h-44 w-full object-cover"
-                  />
-                  <CardHeader>
-                    <CardTitle>{space.space_name}</CardTitle>
-                    <CardDescription className="line-clamp-2">
-                      {space.description}
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-2">
-                    <p className="flex items-center gap-2 font-medium">
-                      <CarFrontIcon className="size-4" />
-                      {getSpacePriceLabel(space)}
-                    </p>
-                    <p className="flex items-center gap-2 text-muted-foreground">
-                      <NavigationIcon className="size-4" />
-                      {formatDistance(space.distanceKm)}
-                    </p>
-                  </CardContent>
-                  <CardFooter>
-                    <Button
-                      type="button"
-                      className="w-full"
-                      variant={isSelected ? "default" : "outline"}
-                      aria-pressed={isSelected}
-                      onClick={(event) => {
-                        event.stopPropagation()
-                        setSelectedSpaceId(space.id)
-                      }}
-                    >
-                      {isSelected ? "Selected" : "Select space"}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              )
-            })}
-          </div>
-        </section>
-      )}
-
       {selectedSpace && (
         <Card className="border-primary/30 bg-primary/5">
-          <CardHeader>
-            <CardTitle>Selected: {selectedSpace.space_name}</CardTitle>
-            <CardDescription>
-              {getSpacePriceLabel(selectedSpace)} · {formatDistance(selectedSpace.distanceKm)}
-            </CardDescription>
-          </CardHeader>
-          <CardFooter className="justify-end">
-            <Button
-              type="button"
-              size="lg"
-              onClick={() => {
-                const params = new URLSearchParams()
-                params.set("spaceId", String(selectedSpace.id))
-                if (location) {
-                  params.set("userLat", String(location.lat))
-                  params.set("userLng", String(location.lng))
-                }
-                router.push(`/dashboard/book-space?${params.toString()}`)
-              }}
-            >
-              Book this space
-            </Button>
-          </CardFooter>
+          <div className="grid md:grid-cols-[220px_1fr]">
+            <img
+              src={selectedSpace.photo_url}
+              alt={selectedSpace.space_name}
+              className="h-48 w-full object-cover md:h-full"
+            />
+            <div>
+              <CardHeader>
+                <CardTitle>{selectedSpace.space_name}</CardTitle>
+                <CardDescription className="line-clamp-2">
+                  {selectedSpace.description}
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-2 sm:grid-cols-3">
+                <p className="flex items-center gap-2 font-medium">
+                  <CarFrontIcon className="size-4" />
+                  {getMapPriceLabel(selectedSpace)}
+                </p>
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <ClockIcon className="size-4" />
+                  {getPriceDetail(selectedSpace)}
+                </p>
+                <p className="flex items-center gap-2 text-muted-foreground">
+                  <NavigationIcon className="size-4" />
+                  {formatDistance(selectedSpace.distanceKm)}
+                </p>
+              </CardContent>
+              <CardFooter className="justify-end">
+                <Button
+                  type="button"
+                  size="lg"
+                  onClick={() => openBooking(selectedSpace)}
+                >
+                  Book this space
+                </Button>
+              </CardFooter>
+            </div>
+          </div>
         </Card>
+      )}
+
+      {hasSearched && unavailableSpaces.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-start gap-3">
+            <AlertTriangleIcon className="mt-0.5 size-5 text-amber-600" />
+            <div>
+              <h2 className="text-lg font-semibold">Nearby, but unavailable</h2>
+              <p className="text-sm text-muted-foreground">
+                These amber spaces are close to your destination, but do not
+                cover the time you selected.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {unavailableSpaces.map((space) => (
+              <Card key={space.id} className="border-amber-300/60 bg-amber-50/40 opacity-80 dark:bg-amber-950/10">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-base">{space.space_name}</CardTitle>
+                  <CardDescription>
+                    {space.availabilityReason ?? "Unavailable at your selected time"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex items-center justify-between gap-4 text-sm">
+                  <span className="font-medium">{getMapPriceLabel(space)}</span>
+                  <span className="text-muted-foreground">
+                    {formatDistance(space.distanceKm)}
+                  </span>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
       )}
     </div>
   )
