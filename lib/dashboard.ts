@@ -1,5 +1,8 @@
 export const dashboardLinks = {
   home: "/dashboard",
+  findSpaces: "/dashboard/find-spaces",
+  registerSpace: "/dashboard/register-space",
+  bookSpace: "/dashboard/book-space",
   playground: "/dashboard/playground",
   playgroundHistory: "/dashboard/playground/history",
   playgroundStarred: "/dashboard/playground/starred",
@@ -33,6 +36,18 @@ const routeInfo: Record<string, DashboardRouteInfo> = {
   "": {
     title: "Dashboard",
     description: "Choose a section from the sidebar to update the content pane.",
+  },
+  "find-spaces": {
+    title: "Find Spaces",
+    description: "Search for and compare nearby private parking spaces.",
+  },
+  "register-space": {
+    title: "Register Space",
+    description: "List a private parking space on Fpark.",
+  },
+  "book-space": {
+    title: "Book Space",
+    description: "Choose booking times and confirm a reservation.",
   },
   playground: {
     title: "Playground",

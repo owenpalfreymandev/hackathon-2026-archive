@@ -22,6 +22,24 @@ import { dashboardLinks } from "@/lib/dashboard"
 const data = {
   navMain: [
     {
+      title: "Parking",
+      url: dashboardLinks.findSpaces,
+      icon: (
+        <MapIcon />
+      ),
+      isActive: true,
+      items: [
+        {
+          title: "Find spaces",
+          url: dashboardLinks.findSpaces,
+        },
+        {
+          title: "Register a space",
+          url: dashboardLinks.registerSpace,
+        },
+      ],
+    },
+    {
       title: "Playground",
       url: dashboardLinks.playground,
       icon: (
@@ -187,8 +205,8 @@ export function AppSidebar({
                 <TerminalIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Acme Inc</span>
-                <span className="truncate text-xs">Enterprise</span>
+                <span className="truncate font-medium">Fpark</span>
+                <span className="truncate text-xs">Parking marketplace</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
