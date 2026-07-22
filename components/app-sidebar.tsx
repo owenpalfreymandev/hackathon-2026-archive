@@ -9,6 +9,7 @@ import {
   SendIcon,
   TerminalIcon,
   CarFrontIcon,
+  CalendarClockIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -41,6 +42,11 @@ const data = {
       title: "My Spaces",
       url: dashboardLinks.mySpaces,
       icon: <CarFrontIcon />,
+    },
+    {
+      title: "My Bookings",
+      url: dashboardLinks.myBookings,
+      icon: <CalendarClockIcon />,
     },
   ],
   navSecondary: [
