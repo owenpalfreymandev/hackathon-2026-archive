@@ -1,7 +1,8 @@
 "use client"
 
 import { useMemo, useState, type FormEvent } from "react"
-import { CheckCircle2Icon } from "lucide-react"
+import { useRouter } from "next/navigation"
+import { CheckCircle2Icon, LayoutDashboardIcon, NavigationIcon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -14,6 +15,8 @@ import {
 } from "@/components/ui/card"
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
+import type { Coordinates } from "@/lib/coordinates"
+import { parseGoogleMapsCoordinates } from "@/lib/coordinates"
 import { formatPounds } from "@/lib/parking"
 import { createClient } from "@/lib/supabase/client"
 
@@ -29,10 +32,37 @@ type BookSpaceFormProps = {
     pricingType: string
     fixedPrice: number | null
     hourlyPrice: number | null
+    latitude: string | number
+    longitude: string | number
   }
+  initialUserLocation?: Coordinates
+}
+
+function getSpaceCoordinates(space: {
+  latitude: string | number
+  longitude: string | number
+}): Coordinates | null {
+  const latNum =
+    typeof space.latitude === "number" ? space.latitude : Number(space.latitude)
+  const lngNum =
+    typeof space.longitude === "number"
+      ? space.longitude
+      : Number(space.longitude)
+
+  if (Number.isFinite(latNum) && Number.isFinite(lngNum)) {
+    return { lat: latNum, lng: lngNum }
+  }
+
+  const parsed = parseGoogleMapsCoordinates(`${space.latitude}, ${space.longitude}`)
+  if (parsed.ok) {
+    return parsed.coordinates
+  }
+
+  return null
 }
 
 export function BookSpaceForm({ space }: BookSpaceFormProps) {
+  const router = useRouter()
   const defaultMode: BookingMode =
     space.pricingType === "hourly" ? "hourly" : "fixed"
   const [bookingMode, setBookingMode] = useState<BookingMode>(defaultMode)
@@ -41,6 +71,14 @@ export function BookSpaceForm({ space }: BookSpaceFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+
+  const handleTakeMeThere = () => {
+    const coords = getSpaceCoordinates(space)
+    if (!coords) return
+
+    const url = `https://www.google.com/maps/dir//${coords.lat},${coords.lng}/`
+    window.open(url, "_blank", "noopener,noreferrer")
+  }
 
   const durationHours = useMemo(() => {
     if (!startsAt || !endsAt) return null
@@ -143,20 +181,59 @@ export function BookSpaceForm({ space }: BookSpaceFormProps) {
   }
 
   if (bookingId) {
+    const spaceCoords = getSpaceCoordinates(space)
+
     return (
       <Card className="mx-auto w-full max-w-2xl">
         <CardHeader>
-          <CheckCircle2Icon className="size-10 text-green-600" />
-          <CardTitle className="text-xl">Booking confirmed</CardTitle>
-          <CardDescription>
-            {space.spaceName} has been reserved for your selected times.
-          </CardDescription>
+          <div className="flex items-center gap-3">
+            <CheckCircle2Icon className="size-10 text-green-600 shrink-0" />
+            <div>
+              <CardTitle className="text-xl">Booking confirmed</CardTitle>
+              <CardDescription>
+                {space.spaceName} has been reserved for your selected times.
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Booking reference: {bookingId}
-          </p>
+        <CardContent className="space-y-4">
+          <div className="rounded-2xl bg-muted p-4 space-y-2 text-sm">
+            <p className="text-muted-foreground">
+              Booking reference:{" "}
+              <span className="font-mono text-foreground font-medium">
+                {bookingId}
+              </span>
+            </p>
+            {spaceCoords && (
+              <p className="text-muted-foreground">
+                Destination coordinates:{" "}
+                <span className="font-mono text-foreground font-medium">
+                  {spaceCoords.lat}, {spaceCoords.lng}
+                </span>
+              </p>
+            )}
+          </div>
         </CardContent>
+        <CardFooter className="flex flex-col sm:flex-row gap-3 justify-between items-center pt-2">
+          <Button
+            type="button"
+            size="lg"
+            className="w-full sm:w-auto gap-2 bg-zinc-900 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 dark:text-zinc-100"
+            onClick={() => router.push("/dashboard")}
+          >
+            <LayoutDashboardIcon className="size-4" />
+            Return to dashboard
+          </Button>
+          <Button
+            type="button"
+            size="lg"
+            className="w-full sm:w-auto gap-2"
+            onClick={handleTakeMeThere}
+          >
+            <NavigationIcon className="size-4" />
+            Take me There
+          </Button>
+        </CardFooter>
       </Card>
     )
   }

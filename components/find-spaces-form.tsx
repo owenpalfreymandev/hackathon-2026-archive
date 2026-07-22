@@ -459,9 +459,15 @@ export function FindSpacesForm() {
             <Button
               type="button"
               size="lg"
-              onClick={() =>
-                router.push(`/dashboard/book-space?spaceId=${selectedSpace.id}`)
-              }
+              onClick={() => {
+                const params = new URLSearchParams()
+                params.set("spaceId", String(selectedSpace.id))
+                if (location) {
+                  params.set("userLat", String(location.lat))
+                  params.set("userLng", String(location.lng))
+                }
+                router.push(`/dashboard/book-space?${params.toString()}`)
+              }}
             >
               Book this space
             </Button>
