@@ -16,7 +16,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, LifeBuoyIcon, SendIcon, FrameIcon, PieChartIcon, MapIcon, TerminalIcon, PinIcon } from "lucide-react"
+import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, LifeBuoyIcon, SendIcon, FrameIcon, PieChartIcon, MapIcon, TerminalIcon, PinIcon, CarIcon } from "lucide-react"
 import { dashboardLinks } from "@/lib/dashboard"
 
 const data = {
@@ -33,6 +33,13 @@ const data = {
       url: "/dashboard/find-spaces",
       icon:(
         <PinIcon/>
+      ),
+    },
+    {
+      title:"My Spaces",
+      url: "/dashboard/my-spaces",
+      icon:(
+        <CarIcon/>
       ),
     },
   ],
