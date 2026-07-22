@@ -10,9 +10,19 @@ import {
   type Coordinates,
 } from "@/lib/coordinates"
 
+export type LocationMarker = {
+  id: string
+  lat: number
+  lng: number
+  colour?: "red" | "blue"
+  title?: string
+}
+
 type LocationPickerProps = {
   value: Coordinates | null
   onChange: (coords: Coordinates) => void
+  markers?: LocationMarker[]
+  onMarkerClick?: (id: string) => void
 }
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -20,8 +30,14 @@ const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
 
 type LeafletMap = {
   setView: (coords: [number, number], zoom: number) => LeafletMap
-  getZoom: () => number
-  on: (event: string, handler: (e: { latlng: { lat: number; lng: number } }) => void) => void
+  fitBounds: (
+    bounds: Array<[number, number]>,
+    options?: { padding?: [number, number]; maxZoom?: number }
+  ) => LeafletMap
+  on: (
+    event: string,
+    handler: (e: { latlng: { lat: number; lng: number } }) => void
+  ) => void
   remove: () => void
 }
 
@@ -30,6 +46,12 @@ type LeafletMarker = {
   getLatLng: () => { lat: number; lng: number }
   on: (event: string, handler: () => void) => void
   addTo: (map: LeafletMap) => LeafletMarker
+  remove: () => void
+}
+
+type LeafletPolyline = {
+  addTo: (map: LeafletMap) => LeafletPolyline
+  remove: () => void
 }
 
 type LeafletModule = {
@@ -40,8 +62,17 @@ type LeafletModule = {
   ) => { addTo: (map: LeafletMap) => void }
   marker: (
     coords: [number, number],
-    options: { draggable: boolean; icon: unknown }
+    options: {
+      draggable: boolean
+      icon: unknown
+      title?: string
+      alt?: string
+    }
   ) => LeafletMarker
+  polyline: (
+    coords: Array<[number, number]>,
+    options: { color: string; weight: number; dashArray: string }
+  ) => LeafletPolyline
   divIcon: (options: {
     className: string
     html: string
@@ -70,13 +101,18 @@ function loadLeaflet(): Promise<LeafletModule> {
       document.head.appendChild(link)
     }
 
-    const existingScript = document.querySelector('script[data-leaflet="true"]')
+    const existingScript = document.querySelector(
+      'script[data-leaflet="true"]'
+    )
+
     if (existingScript) {
       existingScript.addEventListener("load", () => {
         if (window.L) resolve(window.L)
         else reject(new Error("Leaflet failed to load"))
       })
-      existingScript.addEventListener("error", () => reject(new Error("Leaflet failed to load")))
+      existingScript.addEventListener("error", () =>
+        reject(new Error("Leaflet failed to load"))
+      )
       return
     }
 
@@ -92,55 +128,144 @@ function loadLeaflet(): Promise<LeafletModule> {
   })
 }
 
-function createPinIcon(L: LeafletModule) {
+function createPinIcon(
+  L: LeafletModule,
+  colour: "red" | "blue" | "green"
+) {
+  const colourValue = {
+    red: "#dc2626",
+    blue: "#2563eb",
+    green: "#16a34a",
+  }[colour]
+
   return L.divIcon({
     className: "",
-    html: `<div style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;color:#dc2626;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
-      <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="1.5">
+    html: `<div style="display:flex;align-items:center;justify-content:center;width:34px;height:34px;color:${colourValue};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.35));">
+      <svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 24 24" fill="currentColor" stroke="white" stroke-width="1.5" aria-hidden="true">
         <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
         <circle cx="12" cy="10" r="3" fill="white"/>
       </svg>
     </div>`,
-    iconSize: [32, 32],
-    iconAnchor: [16, 32],
+    iconSize: [34, 34],
+    iconAnchor: [17, 34],
   })
 }
 
-export function LocationPicker({ value, onChange }: LocationPickerProps) {
+export function LocationPicker({
+  value,
+  onChange,
+  markers = [],
+  onMarkerClick,
+}: LocationPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
-  const markerRef = useRef<LeafletMarker | null>(null)
+  const searchMarkerRef = useRef<LeafletMarker | null>(null)
+  const spaceMarkersRef = useRef<Map<string, LeafletMarker>>(new Map())
+  const lineRef = useRef<LeafletPolyline | null>(null)
   const leafletRef = useRef<LeafletModule | null>(null)
   const onChangeRef = useRef(onChange)
+  const onMarkerClickRef = useRef(onMarkerClick)
   const valueRef = useRef(value)
+  const markersRef = useRef(markers)
   const [mapReady, setMapReady] = useState(false)
 
   onChangeRef.current = onChange
+  onMarkerClickRef.current = onMarkerClick
   valueRef.current = value
+  markersRef.current = markers
 
-  const placeMarker = (lat: number, lng: number, map: LeafletMap) => {
-    const L = leafletRef.current
-    if (!L) return
+  const fitMapToContent = (map: LeafletMap) => {
+    const points: Array<[number, number]> = []
 
-    if (markerRef.current) {
-      markerRef.current.setLatLng([lat, lng])
+    if (valueRef.current) {
+      points.push([valueRef.current.lat, valueRef.current.lng])
+    }
+
+    for (const marker of markersRef.current) {
+      points.push([marker.lat, marker.lng])
+    }
+
+    if (points.length === 0) {
+      map.setView([JERSEY_CENTER.lat, JERSEY_CENTER.lng], DEFAULT_MAP_ZOOM)
       return
     }
 
-    const icon = createPinIcon(L)
-    markerRef.current = L.marker([lat, lng], { draggable: true, icon }).addTo(map)
-    markerRef.current.on("dragend", () => {
-      const pos = markerRef.current!.getLatLng()
-      onChangeRef.current({ lat: pos.lat, lng: pos.lng })
+    if (points.length === 1) {
+      map.setView(points[0], PIN_MAP_ZOOM)
+      return
+    }
+
+    map.fitBounds(points, { padding: [36, 36], maxZoom: PIN_MAP_ZOOM })
+  }
+
+  const placeSearchMarker = (lat: number, lng: number, map: LeafletMap) => {
+    const L = leafletRef.current
+    if (!L) return
+
+    if (searchMarkerRef.current) {
+      searchMarkerRef.current.setLatLng([lat, lng])
+      return
+    }
+
+    searchMarkerRef.current = L.marker([lat, lng], {
+      draggable: true,
+      icon: createPinIcon(L, "green"),
+      title: "Your search location",
+      alt: "Your search location",
+    }).addTo(map)
+
+    searchMarkerRef.current.on("dragend", () => {
+      const position = searchMarkerRef.current!.getLatLng()
+      onChangeRef.current({ lat: position.lat, lng: position.lng })
     })
   }
 
-  const syncMapToValue = (coords: Coordinates, zoom = PIN_MAP_ZOOM) => {
-    const map = mapRef.current
-    if (!map) return
+  const renderSpaceMarkers = (map: LeafletMap) => {
+    const L = leafletRef.current
+    if (!L) return
 
-    placeMarker(coords.lat, coords.lng, map)
-    map.setView([coords.lat, coords.lng], zoom)
+    for (const marker of spaceMarkersRef.current.values()) {
+      marker.remove()
+    }
+    spaceMarkersRef.current.clear()
+
+    lineRef.current?.remove()
+    lineRef.current = null
+
+    for (const markerData of markersRef.current) {
+      const marker = L.marker([markerData.lat, markerData.lng], {
+        draggable: false,
+        icon: createPinIcon(L, markerData.colour ?? "red"),
+        title: markerData.title ?? "Parking space",
+        alt: markerData.title ?? "Parking space",
+      }).addTo(map)
+
+      marker.on("click", () => {
+        onMarkerClickRef.current?.(markerData.id)
+      })
+
+      spaceMarkersRef.current.set(markerData.id, marker)
+    }
+
+    const selectedMarker = markersRef.current.find(
+      (marker) => marker.colour === "blue"
+    )
+
+    if (valueRef.current && selectedMarker) {
+      lineRef.current = L.polyline(
+        [
+          [valueRef.current.lat, valueRef.current.lng],
+          [selectedMarker.lat, selectedMarker.lng],
+        ],
+        {
+          color: "#2563eb",
+          weight: 3,
+          dashArray: "7 7",
+        }
+      ).addTo(map)
+    }
+
+    fitMapToContent(map)
   }
 
   useEffect(() => {
@@ -153,57 +278,78 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
         leafletRef.current = L
 
         const initial = valueRef.current ?? JERSEY_CENTER
-        const initialZoom = valueRef.current ? PIN_MAP_ZOOM : DEFAULT_MAP_ZOOM
+        const initialZoom = valueRef.current
+          ? PIN_MAP_ZOOM
+          : DEFAULT_MAP_ZOOM
         const map = L.map(containerRef.current).setView(
           [initial.lat, initial.lng],
           initialZoom
         )
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
         }).addTo(map)
 
         mapRef.current = map
 
         if (valueRef.current) {
-          placeMarker(valueRef.current.lat, valueRef.current.lng, map)
+          placeSearchMarker(valueRef.current.lat, valueRef.current.lng, map)
         }
+
+        renderSpaceMarkers(map)
 
         map.on("click", (event) => {
           const { lat, lng } = event.latlng
-          placeMarker(lat, lng, map)
+          placeSearchMarker(lat, lng, map)
           onChangeRef.current({ lat, lng })
         })
 
         setMapReady(true)
       })
       .catch(() => {
-        // Map tiles failed to load — the form still validates coordinates if set elsewhere.
+        // Coordinate entry and geolocation still work if map assets fail.
       })
 
     return () => {
       cancelled = true
       setMapReady(false)
+      lineRef.current?.remove()
+      lineRef.current = null
+      for (const marker of spaceMarkersRef.current.values()) {
+        marker.remove()
+      }
+      spaceMarkersRef.current.clear()
       mapRef.current?.remove()
       mapRef.current = null
-      markerRef.current = null
+      searchMarkerRef.current = null
       leafletRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    if (!mapReady || !value) return
-    syncMapToValue(value)
+    if (!mapReady || !value || !mapRef.current) return
+
+    placeSearchMarker(value.lat, value.lng, mapRef.current)
+    fitMapToContent(mapRef.current)
   }, [value, mapReady])
+
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    renderSpaceMarkers(mapRef.current)
+  }, [markers, mapReady])
 
   return (
     <div className="space-y-2">
       <div className="relative overflow-hidden rounded-md border">
-        <div ref={containerRef} className="h-64 w-full [&_.leaflet-control-attribution]:text-[10px]" />
+        <div
+          ref={containerRef}
+          className="h-80 w-full [&_.leaflet-control-attribution]:text-[10px]"
+        />
         {!value && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
             <span className="rounded-full bg-background/95 px-3 py-1 text-xs text-muted-foreground shadow-sm">
-              Click the map to drop a pin
+              Click the map to choose a location
             </span>
           </div>
         )}
@@ -211,12 +357,15 @@ export function LocationPicker({ value, onChange }: LocationPickerProps) {
 
       {value ? (
         <p className="flex items-center gap-1.5 text-sm text-muted-foreground">
-          <MapPinIcon className="size-4 shrink-0 text-destructive" />
+          <MapPinIcon className="size-4 shrink-0 text-green-600" />
           {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
+          {markers.length > 0 && (
+            <span className="ml-2">Green: you · Red: available · Blue: selected</span>
+          )}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground">
-          Drag the pin or click the map to set the parking spot.
+          Drag the green pin or click the map to choose your search point.
         </p>
       )}
     </div>

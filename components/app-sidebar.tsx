@@ -72,8 +72,8 @@ export function AppSidebar({
                 <TerminalIcon className="size-4" />
               </div>
               <div className="grid flex-1 text-left text-sm leading-tight">
-                <span className="truncate font-medium">Acme Inc</span>
-                <span className="truncate text-xs">Enterprise</span>
+                <span className="truncate font-medium">Fpark</span>
+                <span className="truncate text-xs">Parking marketplace</span>
               </div>
             </SidebarMenuButton>
           </SidebarMenuItem>
