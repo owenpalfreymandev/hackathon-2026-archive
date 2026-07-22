@@ -9,7 +9,7 @@ import {
   SendIcon,
   TerminalIcon,
   CarFrontIcon,
-  FileIcon,
+  CalendarClockIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -45,9 +45,9 @@ const data = {
     },
     {
       title: "My Bookings",
-      url: "/dashboard/my-bookings",
-      icon: <FileIcon />,
-    }
+      url: dashboardLinks.myBookings,
+      icon: <CalendarClockIcon />,
+    },
   ],
   navSecondary: [
     {
