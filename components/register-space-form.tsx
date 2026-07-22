@@ -31,16 +31,9 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { LocateFixedIcon, MapPinIcon, SearchIcon } from "lucide-react"
+import { LocateFixedIcon } from "lucide-react"
 
 type PricingType = "fixed" | "hourly" | "both"
-
-type GeocodeResult = {
-  id: string
-  displayName: string
-  lat: number
-  lng: number
-}
 
 const PRICING_OPTIONS: { value: PricingType; label: string }[] = [
   { value: "fixed", label: "Fixed price" },
@@ -66,9 +59,6 @@ export function RegisterSpaceForm() {
   const [photoFile, setPhotoFile] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [coordinates, setCoordinates] = useState<Coordinates | null>(null)
-  const [address, setAddress] = useState("")
-  const [addressResults, setAddressResults] = useState<GeocodeResult[]>([])
-  const [isSearchingAddress, setIsSearchingAddress] = useState(false)
   const [coordinateInput, setCoordinateInput] = useState("")
   const [coordinateInputError, setCoordinateInputError] = useState<string | null>(
     null
@@ -98,46 +88,6 @@ export function RegisterSpaceForm() {
     setCoordinateInputError(null)
     setError(null)
     setCoordinates(result.coordinates)
-  }
-
-  const handleAddressSearch = async () => {
-    const query = address.trim()
-
-    if (query.length < 3) {
-      setError("Enter at least three characters of the address.")
-      return
-    }
-
-    setIsSearchingAddress(true)
-    setAddressResults([])
-    setError(null)
-
-    try {
-      const response = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`)
-      const body = (await response.json()) as {
-        results?: GeocodeResult[]
-        error?: string
-      }
-
-      if (!response.ok) {
-        throw new Error(body.error ?? "Address search failed.")
-      }
-
-      const results = body.results ?? []
-      setAddressResults(results)
-
-      if (results.length === 0) {
-        setError("No Jersey address matched that search.")
-      }
-    } catch (caughtError) {
-      setError(
-        caughtError instanceof Error
-          ? caughtError.message
-          : "Address search failed."
-      )
-    } finally {
-      setIsSearchingAddress(false)
-    }
   }
 
   const handleUseCurrentLocation = () => {
@@ -264,8 +214,6 @@ export function RegisterSpaceForm() {
       setPhotoFile(null)
       setPhotoPreview(null)
       setCoordinates(null)
-      setAddress("")
-      setAddressResults([])
       setCoordinateInput("")
       setPricingType("fixed")
       setFixedPrice("")
@@ -286,7 +234,7 @@ export function RegisterSpaceForm() {
   }
 
   return (
-    <Card className="mx-auto w-full max-w-6xl">
+    <Card className="mx-auto w-full max-w-2xl">
       <CardHeader>
         <CardTitle>Register a Parking Space</CardTitle>
         <CardDescription>All fields below are required.</CardDescription>
@@ -353,58 +301,9 @@ export function RegisterSpaceForm() {
                 </Button>
               </div>
               <FieldDescription>
-                Search for an address, drop a pin on the map, use your current
-                location, or paste coordinates from a Google Maps pin.
+                Drop a pin on the map, use your current location, or paste
+                coordinates from a Google Maps pin.
               </FieldDescription>
-
-              <div className="flex flex-col gap-2 pt-1">
-                <FieldLabel htmlFor="space-address">Search by address</FieldLabel>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Input
-                    id="space-address"
-                    value={address}
-                    onChange={(event) => setAddress(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        event.preventDefault()
-                        void handleAddressSearch()
-                      }
-                    }}
-                    placeholder="King Street, St Helier"
-                    autoComplete="street-address"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isSearchingAddress}
-                    onClick={() => void handleAddressSearch()}
-                  >
-                    <SearchIcon className="size-4" />
-                    {isSearchingAddress ? "Searching..." : "Search"}
-                  </Button>
-                </div>
-
-                {addressResults.length > 0 && (
-                  <div className="overflow-hidden rounded-2xl border">
-                    {addressResults.map((result) => (
-                      <button
-                        key={result.id}
-                        type="button"
-                        className="flex w-full items-start gap-2 border-b px-3 py-2 text-left text-sm transition-colors last:border-b-0 hover:bg-muted"
-                        onClick={() => {
-                          setAddress(result.displayName)
-                          setCoordinates({ lat: result.lat, lng: result.lng })
-                          setAddressResults([])
-                          setError(null)
-                        }}
-                      >
-                        <MapPinIcon className="mt-0.5 size-4 shrink-0" />
-                        <span>{result.displayName}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
 
               <LocationPicker value={coordinates} onChange={setCoordinates} />
 
