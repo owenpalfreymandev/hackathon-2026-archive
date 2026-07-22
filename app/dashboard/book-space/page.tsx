@@ -10,9 +10,6 @@ import { createClient } from "@/lib/supabase/server"
 type BookSpacePageProps = {
   searchParams: Promise<{
     spaceId?: string | string[]
-    startsAt?: string | string[]
-    endsAt?: string | string[]
-    mode?: string | string[]
     userLat?: string | string[]
     userLng?: string | string[]
   }>
@@ -26,15 +23,21 @@ export default async function BookSpacePage({
     ? params.spaceId[0]
     : params.spaceId
   const spaceId = Number(rawSpaceId)
-  const initialStartsAt = Array.isArray(params.startsAt)
-    ? params.startsAt[0]
-    : params.startsAt
-  const initialEndsAt = Array.isArray(params.endsAt)
-    ? params.endsAt[0]
-    : params.endsAt
-  const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode
-  const initialBookingMode =
-    rawMode === "fixed" || rawMode === "hourly" ? rawMode : undefined
+
+  const rawUserLat = Array.isArray(params.userLat)
+    ? params.userLat[0]
+    : params.userLat
+  const rawUserLng = Array.isArray(params.userLng)
+    ? params.userLng[0]
+    : params.userLng
+
+  const parsedLat = rawUserLat ? parseFloat(rawUserLat) : NaN
+  const parsedLng = rawUserLng ? parseFloat(rawUserLng) : NaN
+
+  const initialUserLocation =
+    Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+      ? { lat: parsedLat, lng: parsedLng }
+      : undefined
 
   if (!Number.isSafeInteger(spaceId) || spaceId <= 0) {
     return (
@@ -90,9 +93,7 @@ export default async function BookSpacePage({
           latitude: space.latitude,
           longitude: space.longitude,
         }}
-        initialStartsAt={initialStartsAt}
-        initialEndsAt={initialEndsAt}
-        initialBookingMode={initialBookingMode}
+        initialUserLocation={initialUserLocation}
       />
     </div>
   )
