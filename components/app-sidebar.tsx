@@ -9,6 +9,7 @@ import {
   SendIcon,
   TerminalIcon,
   CarFrontIcon,
+  FileIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
@@ -42,6 +43,11 @@ const data = {
       url: dashboardLinks.mySpaces,
       icon: <CarFrontIcon />,
     },
+    {
+      title: "My Bookings",
+      url: "/dashboard/my-bookings",
+      icon: <FileIcon />,
+    }
   ],
   navSecondary: [
     {
