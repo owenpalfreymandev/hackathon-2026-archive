@@ -234,7 +234,7 @@ export function RegisterSpaceForm() {
   }
 
   return (
-    <Card className="mx-auto w-full max-w-2xl">
+    <Card className="mx-auto w-full max-w-6xl">
       <CardHeader>
         <CardTitle>Register a Parking Space</CardTitle>
         <CardDescription>All fields below are required.</CardDescription>
