@@ -34,6 +34,21 @@ export default async function BookSpacePage({
   const initialBookingMode =
     rawMode === "fixed" || rawMode === "hourly" ? rawMode : undefined
 
+  const rawUserLat = Array.isArray(params.userLat)
+    ? params.userLat[0]
+    : params.userLat
+  const rawUserLng = Array.isArray(params.userLng)
+    ? params.userLng[0]
+    : params.userLng
+
+  const parsedLat = rawUserLat ? parseFloat(rawUserLat) : NaN
+  const parsedLng = rawUserLng ? parseFloat(rawUserLng) : NaN
+
+  const initialUserLocation =
+    Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+      ? { lat: parsedLat, lng: parsedLng }
+      : undefined
+
   if (!Number.isSafeInteger(spaceId) || spaceId <= 0) {
     return (
       <div className="p-4">
@@ -53,7 +68,7 @@ export default async function BookSpacePage({
   const { data: space, error } = await supabase
     .from("spaces")
     .select(
-      "id, space_name, description, photo_url, user_id, pricing_type, fixed_price, hourly_price"
+      "id, space_name, description, photo_url, user_id, pricing_type, fixed_price, hourly_price, latitude, longitude"
     )
     .eq("id", spaceId)
     .single()
@@ -85,6 +100,8 @@ export default async function BookSpacePage({
           pricingType: space.pricing_type,
           fixedPrice: space.fixed_price,
           hourlyPrice: space.hourly_price,
+          latitude: space.latitude,
+          longitude: space.longitude,
         }}
         initialStartsAt={initialStartsAt}
         initialEndsAt={initialEndsAt}
