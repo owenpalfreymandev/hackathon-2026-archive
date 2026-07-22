@@ -2,9 +2,16 @@
 
 import * as React from "react"
 import Link from "next/link"
+import {
+  LifeBuoyIcon,
+  MapIcon,
+  PinIcon,
+  SendIcon,
+  TerminalIcon,
+  CarFrontIcon,
+} from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
-//import { NavProjects } from "@/components/nav-projects"
 import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -16,59 +23,40 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
-import { TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, LifeBuoyIcon, SendIcon, FrameIcon, PieChartIcon, MapIcon, TerminalIcon, PinIcon, CarIcon } from "lucide-react"
 import { dashboardLinks } from "@/lib/dashboard"
 
 const data = {
   navMain: [
     {
+      title: "Find Spaces",
+      url: dashboardLinks.findSpaces,
+      icon: <PinIcon />,
+    },
+    {
       title: "Register Space",
-      url: "/dashboard/register-space",
-      icon:(
-        <MapIcon/>
-      ),
+      url: dashboardLinks.registerSpace,
+      icon: <MapIcon />,
     },
     {
-      title:"Find Spaces",
-      url: "/dashboard/find-spaces",
-      icon:(
-        <PinIcon/>
-      ),
-    },
-    {
-      title:"My Spaces",
-      url: "/dashboard/my-spaces",
-      icon:(
-        <CarIcon/>
-      ),
-    },
-    {
-      title: "My Bookings",
-      url: "/dashboard/my-bookings",
-      icon:(
-        <BookOpenIcon/>
-      ),
+      title: "My Spaces",
+      url: dashboardLinks.mySpaces,
+      icon: <CarFrontIcon />,
     },
   ],
   navSecondary: [
     {
       title: "Support",
       url: "#",
-      icon: (
-        <LifeBuoyIcon
-        />
-      ),
+      icon: <LifeBuoyIcon />,
     },
     {
       title: "Feedback",
       url: "#",
-      icon: (
-        <SendIcon
-        />
-      ),
+      icon: <SendIcon />,
     },
   ],
 }
+
 export function AppSidebar({
   user,
   ...props
@@ -87,7 +75,10 @@ export function AppSidebar({
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarMenuButton size="lg" render={<Link href={dashboardLinks.home} />}>
+            <SidebarMenuButton
+              size="lg"
+              render={<Link href={dashboardLinks.home} />}
+            >
               <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
                 <TerminalIcon className="size-4" />
               </div>
