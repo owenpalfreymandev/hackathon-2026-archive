@@ -54,8 +54,6 @@ const LocationPicker = dynamic(
   }
 )
 
-type PricingMode = "fixed" | "hourly"
-
 type SpaceRow = {
   id: number
   space_name: string
@@ -76,7 +74,6 @@ type AvailabilityRow = {
 }
 
 type PriceQuote = {
-  mode: PricingMode
   total: number
   effectiveHourly: number
 }
@@ -101,49 +98,45 @@ function getDurationHours(startsAt: Date, endsAt: Date): number {
 }
 
 function getPriceQuote(space: SpaceRow, durationHours: number): PriceQuote | null {
-  const quotes: PriceQuote[] = []
+  const fixedPrice = space.fixed_price
+  const hourlyPrice = space.hourly_price
+  const billedHours = Math.ceil(durationHours * 4) / 4
 
-  if (
-    (space.pricing_type === "hourly" || space.pricing_type === "both") &&
-    space.hourly_price !== null &&
-    space.hourly_price > 0
-  ) {
-    const billedHours = Math.ceil(durationHours * 4) / 4
-    quotes.push({
-      mode: "hourly",
-      total: billedHours * space.hourly_price,
-      effectiveHourly: space.hourly_price,
-    })
+  if (space.pricing_type === "both") {
+    if (!fixedPrice || !hourlyPrice) return null
+
+    return {
+      total: fixedPrice + billedHours * hourlyPrice,
+      effectiveHourly: hourlyPrice,
+    }
   }
 
-  if (
-    (space.pricing_type === "fixed" || space.pricing_type === "both") &&
-    space.fixed_price !== null &&
-    space.fixed_price > 0
-  ) {
-    quotes.push({
-      mode: "fixed",
-      total: space.fixed_price,
-      effectiveHourly: space.fixed_price / durationHours,
-    })
+  if (space.pricing_type === "hourly" && hourlyPrice) {
+    return { total: billedHours * hourlyPrice, effectiveHourly: hourlyPrice }
   }
 
-  return (
-    quotes.sort((first, second) => first.total - second.total)[0] ?? null
-  )
+  if (space.pricing_type === "fixed" && fixedPrice) {
+    return { total: fixedPrice, effectiveHourly: fixedPrice / durationHours }
+  }
+
+  return null
 }
 
 function getMapPriceLabel(space: NearbySpace): string {
   if (!space.quote) return "No price"
 
-  const suffix = space.quote.mode === "fixed" ? "/hr eq." : "/hr"
+  if (space.pricing_type === "both" && space.fixed_price && space.hourly_price) {
+    return `${formatPounds(space.fixed_price)} + ${formatPounds(space.hourly_price)}/hr`
+  }
+
+  const suffix = space.pricing_type === "fixed" ? "/hr eq." : "/hr"
   return `${formatPounds(space.quote.effectiveHourly)}${suffix}`
 }
 
 function getPriceDetail(space: NearbySpace): string {
   if (!space.quote) return "Price unavailable"
 
-  const suffix = space.quote.mode === "fixed" ? "fixed rate" : "for your stay"
+  const suffix = space.pricing_type === "fixed" ? "fixed rate" : "for your stay"
   return `${formatPounds(space.quote.total)} ${suffix}`
 }
 
@@ -426,7 +419,6 @@ export function FindSpacesForm() {
       spaceId: String(space.id),
       startsAt: requestedTimes.startsAt.toISOString(),
       endsAt: requestedTimes.endsAt.toISOString(),
-      mode: space.quote.mode,
     })
 
     router.push(`/dashboard/book-space?${params.toString()}`)

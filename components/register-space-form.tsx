@@ -38,7 +38,7 @@ type PricingType = "fixed" | "hourly" | "both"
 const PRICING_OPTIONS: { value: PricingType; label: string }[] = [
   { value: "fixed", label: "Fixed price" },
   { value: "hourly", label: "Hourly rate" },
-  { value: "both", label: "Both" },
+  { value: "both", label: "Booking fee + hourly rate" },
 ]
 
 const LocationPicker = dynamic(
@@ -349,7 +349,8 @@ export function RegisterSpaceForm() {
             <Field>
               <FieldLabel>Pricing</FieldLabel>
               <FieldDescription>
-                Choose how this space is priced and enter the amounts in GBP.
+                Choose how this space is priced and enter the amounts in GBP. A
+                booking fee plus hourly rate charges both amounts.
               </FieldDescription>
 
               <div className="flex flex-col gap-4">
@@ -374,7 +375,9 @@ export function RegisterSpaceForm() {
 
                 {(pricingType === "fixed" || pricingType === "both") && (
                   <Field>
-                    <FieldLabel htmlFor="fixed-price">Fixed price</FieldLabel>
+                    <FieldLabel htmlFor="fixed-price">
+                      {pricingType === "both" ? "Booking fee" : "Fixed price"}
+                    </FieldLabel>
                     <Input
                       id="fixed-price"
                       type="number"
@@ -386,7 +389,9 @@ export function RegisterSpaceForm() {
                       required
                     />
                     <FieldDescription>
-                      One-off price for the booking (GBP).
+                      {pricingType === "both"
+                        ? "One-off fee added to the hourly charge (GBP)."
+                        : "One-off price for the booking (GBP)."}
                     </FieldDescription>
                   </Field>
                 )}
