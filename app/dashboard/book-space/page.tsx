@@ -8,7 +8,11 @@ import {
 import { createClient } from "@/lib/supabase/server"
 
 type BookSpacePageProps = {
-  searchParams: Promise<{ spaceId?: string | string[] }>
+  searchParams: Promise<{
+    spaceId?: string | string[]
+    userLat?: string | string[]
+    userLng?: string | string[]
+  }>
 }
 
 export default async function BookSpacePage({
@@ -19,6 +23,21 @@ export default async function BookSpacePage({
     ? params.spaceId[0]
     : params.spaceId
   const spaceId = Number(rawSpaceId)
+
+  const rawUserLat = Array.isArray(params.userLat)
+    ? params.userLat[0]
+    : params.userLat
+  const rawUserLng = Array.isArray(params.userLng)
+    ? params.userLng[0]
+    : params.userLng
+
+  const parsedLat = rawUserLat ? parseFloat(rawUserLat) : NaN
+  const parsedLng = rawUserLng ? parseFloat(rawUserLng) : NaN
+
+  const initialUserLocation =
+    Number.isFinite(parsedLat) && Number.isFinite(parsedLng)
+      ? { lat: parsedLat, lng: parsedLng }
+      : undefined
 
   if (!Number.isSafeInteger(spaceId) || spaceId <= 0) {
     return (
@@ -39,7 +58,7 @@ export default async function BookSpacePage({
   const { data: space, error } = await supabase
     .from("spaces")
     .select(
-      "id, space_name, description, photo_url, user_id, pricing_type, fixed_price, hourly_price"
+      "id, space_name, description, photo_url, user_id, pricing_type, fixed_price, hourly_price, latitude, longitude"
     )
     .eq("id", spaceId)
     .single()
@@ -71,7 +90,10 @@ export default async function BookSpacePage({
           pricingType: space.pricing_type,
           fixedPrice: space.fixed_price,
           hourlyPrice: space.hourly_price,
+          latitude: space.latitude,
+          longitude: space.longitude,
         }}
+        initialUserLocation={initialUserLocation}
       />
     </div>
   )
