@@ -12,7 +12,6 @@ type BookSpacePageProps = {
     spaceId?: string | string[]
     startsAt?: string | string[]
     endsAt?: string | string[]
-    mode?: string | string[]
     userLat?: string | string[]
     userLng?: string | string[]
   }>
@@ -32,9 +31,6 @@ export default async function BookSpacePage({
   const initialEndsAt = Array.isArray(params.endsAt)
     ? params.endsAt[0]
     : params.endsAt
-  const rawMode = Array.isArray(params.mode) ? params.mode[0] : params.mode
-  const initialBookingMode =
-    rawMode === "fixed" || rawMode === "hourly" ? rawMode : undefined
 
   if (!Number.isSafeInteger(spaceId) || spaceId <= 0) {
     return (
@@ -92,7 +88,6 @@ export default async function BookSpacePage({
         }}
         initialStartsAt={initialStartsAt}
         initialEndsAt={initialEndsAt}
-        initialBookingMode={initialBookingMode}
       />
     </div>
   )

@@ -19,8 +19,6 @@ import type { Coordinates } from "@/lib/coordinates"
 import { formatPounds } from "@/lib/parking"
 import { createClient } from "@/lib/supabase/client"
 
-type BookingMode = "fixed" | "hourly"
-
 type BookSpaceFormProps = {
   space: {
     id: number
@@ -36,7 +34,6 @@ type BookSpaceFormProps = {
   }
   initialStartsAt?: string
   initialEndsAt?: string
-  initialBookingMode?: BookingMode
 }
 
 function toDateTimeLocal(value?: string): string {
@@ -73,20 +70,8 @@ export function BookSpaceForm({
   space,
   initialStartsAt,
   initialEndsAt,
-  initialBookingMode,
 }: BookSpaceFormProps) {
   const router = useRouter()
-  const supportedInitialMode =
-    initialBookingMode === "hourly" &&
-    (space.pricingType === "hourly" || space.pricingType === "both")
-      ? "hourly"
-      : initialBookingMode === "fixed" &&
-          (space.pricingType === "fixed" || space.pricingType === "both")
-        ? "fixed"
-        : null
-  const defaultMode: BookingMode =
-    supportedInitialMode ?? (space.pricingType === "hourly" ? "hourly" : "fixed")
-  const [bookingMode, setBookingMode] = useState<BookingMode>(defaultMode)
   const [startsAt, setStartsAt] = useState(() => toDateTimeLocal(initialStartsAt))
   const [endsAt, setEndsAt] = useState(() => toDateTimeLocal(initialEndsAt))
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -112,16 +97,16 @@ export function BookSpaceForm({
   }, [startsAt, endsAt])
 
   const totalPrice = useMemo(() => {
-    if (bookingMode === "fixed") {
-      return space.fixedPrice
+    if (space.pricingType === "fixed") return space.fixedPrice
+    if (space.hourlyPrice === null || durationHours === null) return null
+
+    const hourlyTotal = (Math.ceil(durationHours * 4) / 4) * space.hourlyPrice
+    if (space.pricingType === "both") {
+      return space.fixedPrice === null ? null : space.fixedPrice + hourlyTotal
     }
 
-    if (space.hourlyPrice === null || durationHours === null) {
-      return null
-    }
-
-    return (Math.ceil(durationHours * 4) / 4) * space.hourlyPrice
-  }, [bookingMode, durationHours, space.fixedPrice, space.hourlyPrice])
+    return hourlyTotal
+  }, [durationHours, space.fixedPrice, space.hourlyPrice, space.pricingType])
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
@@ -200,7 +185,7 @@ export function BookSpaceForm({
           driver_id: user.id,
           starts_at: start.toISOString(),
           ends_at: end.toISOString(),
-          booking_type: bookingMode === "hourly" ? "hourly" : "daily",
+          booking_type: space.pricingType === "fixed" ? "daily" : "hourly",
           total_price_pence: Math.round(totalPrice * 100),
           status: "confirmed",
         })
@@ -301,27 +286,6 @@ export function BookSpaceForm({
 
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          {space.pricingType === "both" && (
-            <Field>
-              <FieldLabel htmlFor="booking-mode">Pricing option</FieldLabel>
-              <select
-                id="booking-mode"
-                value={bookingMode}
-                onChange={(event) =>
-                  setBookingMode(event.target.value as BookingMode)
-                }
-                className="h-9 w-full rounded-2xl border bg-background px-3 text-sm"
-              >
-                <option value="fixed">
-                  Fixed — {space.fixedPrice === null ? "Unavailable" : formatPounds(space.fixedPrice)}
-                </option>
-                <option value="hourly">
-                  Hourly — {space.hourlyPrice === null ? "Unavailable" : `${formatPounds(space.hourlyPrice)}/hr`}
-                </option>
-              </select>
-            </Field>
-          )}
-
           <FieldGroup>
             <Field>
               <FieldLabel htmlFor="starts-at">Starts</FieldLabel>
@@ -351,11 +315,19 @@ export function BookSpaceForm({
             <p className="text-2xl font-semibold">
               {totalPrice === null ? "Choose valid times" : formatPounds(totalPrice)}
             </p>
-            {bookingMode === "hourly" && durationHours !== null && (
+            {space.pricingType === "both" &&
+              space.fixedPrice !== null &&
+              space.hourlyPrice !== null && (
+                <p className="text-xs text-muted-foreground">
+                  Includes a {formatPounds(space.fixedPrice)} booking fee plus {formatPounds(space.hourlyPrice)}/hr.
+                </p>
+              )}
+            {(space.pricingType === "hourly" || space.pricingType === "both") &&
+              durationHours !== null && (
               <p className="text-xs text-muted-foreground">
                 Charged in quarter-hour increments.
               </p>
-            )}
+              )}
           </div>
 
           {error && (
