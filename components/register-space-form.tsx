@@ -3,6 +3,8 @@
 import dynamic from "next/dynamic"
 import { useState, type ChangeEvent, type FormEvent } from "react"
 
+import { createClient } from "@/lib/supabase/client"
+
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -51,6 +53,7 @@ const LocationPicker = dynamic(
 )
 
 export function RegisterSpaceForm() {
+  const [supabase] = useState(() => createClient())
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
   const [photoFile, setPhotoFile] = useState<File | null>(null)
@@ -66,6 +69,7 @@ export function RegisterSpaceForm() {
   const [hourlyPrice, setHourlyPrice] = useState("")
   const [error, setError] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null
@@ -115,12 +119,12 @@ export function RegisterSpaceForm() {
     return Number.isNaN(parsed) ? null : parsed
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
     setSubmitted(false)
 
-    if (!name || !description || !photoFile || !coordinates) {
+    if (!name.trim() || !description.trim() || !photoFile || !coordinates) {
       setError("Please fill in every field, including a photo and map pin.")
       return
     }
@@ -154,27 +158,79 @@ export function RegisterSpaceForm() {
       }
     }
 
-    const pricing =
-      pricingType === "fixed"
-        ? { type: pricingType, fixedPrice: parsedFixedPrice }
-        : pricingType === "hourly"
-          ? { type: pricingType, hourlyPrice: parsedHourlyPrice }
-          : {
-              type: pricingType,
-              fixedPrice: parsedFixedPrice,
-              hourlyPrice: parsedHourlyPrice,
-            }
+    setIsSubmitting(true)
 
-    // No database wired up yet — just log what would be saved.
-    console.log("New parking space:", {
-      name,
-      description,
-      photo: photoFile,
-      location: { lat, lng },
-      pricing,
-    })
+    let uploadedPhotoPath: string | null = null
 
-    setSubmitted(true)
+    try {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError) throw userError
+      if (!user) throw new Error("You must be signed in to register a space.")
+
+      const extension = photoFile.name.split(".").pop()?.toLowerCase() || "jpg"
+      uploadedPhotoPath = `${user.id}/${crypto.randomUUID()}.${extension}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("space-photos")
+        .upload(uploadedPhotoPath, photoFile, {
+          cacheControl: "3600",
+          contentType: photoFile.type || undefined,
+          upsert: false,
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage
+        .from("space-photos")
+        .getPublicUrl(uploadedPhotoPath)
+
+      const { error: insertError } = await supabase.from("spaces").insert({
+        space_name: name.trim(),
+        description: description.trim(),
+        latitude: String(lat),
+        longitude: String(lng),
+        pricing_type: pricingType,
+        fixed_price:
+          pricingType === "fixed" || pricingType === "both"
+            ? parsedFixedPrice
+            : null,
+        hourly_price:
+          pricingType === "hourly" || pricingType === "both"
+            ? parsedHourlyPrice
+            : null,
+        photo_url: publicUrlData.publicUrl,
+        user_id: user.id,
+      })
+
+      if (insertError) throw insertError
+
+      setSubmitted(true)
+      setName("")
+      setDescription("")
+      setPhotoFile(null)
+      setPhotoPreview(null)
+      setCoordinates(null)
+      setCoordinateInput("")
+      setPricingType("fixed")
+      setFixedPrice("")
+      setHourlyPrice("")
+    } catch (caughtError) {
+      if (uploadedPhotoPath) {
+        await supabase.storage.from("space-photos").remove([uploadedPhotoPath])
+      }
+
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "The space could not be registered."
+      )
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -361,12 +417,12 @@ export function RegisterSpaceForm() {
 
           {submitted && (
             <p className="text-sm text-emerald-600">
-              Space saved (logged to console — no database wired up yet).
+              Space registered successfully.
             </p>
           )}
 
-          <Button type="submit" className="w-full">
-            Save Space
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? "Registering..." : "Register Space"}
           </Button>
         </form>
       </CardContent>
