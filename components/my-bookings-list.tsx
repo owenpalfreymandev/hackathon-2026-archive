@@ -18,6 +18,7 @@ import {
 import type { BookingDetails } from "@/app/dashboard/my-bookings/page"
 import { BookingLocationMap } from "@/components/booking-location-map"
 import { CancelBookingButton } from "@/components/cancel-booking-button"
+import { RemoveCancelledBookingButton } from "@/components/remove-cancelled-booking-button"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -134,18 +135,47 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
     null
   )
+  const [hiddenBookingIds, setHiddenBookingIds] = useState<Set<string>>(
+    () => new Set()
+  )
+  const [removalMessage, setRemovalMessage] = useState<string | null>(null)
+  const [now] = useState(() => Date.now())
 
-  const selectedBooking = useMemo(
-    () => bookings.find((booking) => booking.id === selectedBookingId) ?? null,
-    [bookings, selectedBookingId]
+  const visibleBookings = useMemo(
+    () => bookings.filter((booking) => !hiddenBookingIds.has(booking.id)),
+    [bookings, hiddenBookingIds]
   )
 
-  const now = Date.now()
+  const selectedBooking = useMemo(
+    () =>
+      visibleBookings.find((booking) => booking.id === selectedBookingId) ??
+      null,
+    [selectedBookingId, visibleBookings]
+  )
+
+  function handleBookingRemoved(bookingId: string) {
+    setHiddenBookingIds((currentIds) => {
+      const nextIds = new Set(currentIds)
+      nextIds.add(bookingId)
+      return nextIds
+    })
+    setSelectedBookingId(null)
+    setRemovalMessage("Cancelled booking removed from My Bookings.")
+  }
 
   return (
     <>
+      {removalMessage && (
+        <p
+          className="rounded-md border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400"
+          role="status"
+        >
+          {removalMessage}
+        </p>
+      )}
+
       <div className="grid gap-4 xl:grid-cols-2">
-        {bookings.map((booking) => {
+        {visibleBookings.map((booking) => {
           const startsAt = new Date(booking.startsAt)
           const endsAt = new Date(booking.endsAt)
           const isPast = endsAt.getTime() <= now
@@ -246,6 +276,16 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
                     <CancelBookingButton
                       bookingId={booking.id}
                       spaceName={booking.spaceName}
+                    />
+                  </div>
+                )}
+
+                {booking.status === "cancelled" && (
+                  <div className="border-t pt-4">
+                    <RemoveCancelledBookingButton
+                      bookingId={booking.id}
+                      spaceName={booking.spaceName}
+                      onRemoved={handleBookingRemoved}
                     />
                   </div>
                 )}
