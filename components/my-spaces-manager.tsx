@@ -195,13 +195,30 @@ function validateDraft(draft: AvailabilityDraft): string | null {
   return null
 }
 
+function getPhotoStoragePath(photoUrl: string): string | null {
+  const marker = "/storage/v1/object/public/space-photos/"
+  const markerIndex = photoUrl.indexOf(marker)
+
+  if (markerIndex < 0) return null
+
+  const encodedPath = photoUrl.slice(markerIndex + marker.length)
+
+  try {
+    return decodeURIComponent(encodedPath)
+  } catch {
+    return encodedPath
+  }
+}
+
 export function MySpacesManager() {
   const [spaces, setSpaces] = useState<SpaceRow[]>([])
   const [drafts, setDrafts] = useState<Record<number, AvailabilityDraft>>({})
   const [expandedSpaceId, setExpandedSpaceId] = useState<number | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [savingSpaceId, setSavingSpaceId] = useState<number | null>(null)
+  const [deletingSpaceId, setDeletingSpaceId] = useState<number | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [notice, setNotice] = useState<string | null>(null)
   const [successSpaceId, setSuccessSpaceId] = useState<number | null>(null)
 
   const loadSpaces = useCallback(async () => {
@@ -289,6 +306,7 @@ export function MySpacesManager() {
       }
     })
     setSuccessSpaceId(null)
+    setNotice(null)
     setError(null)
   }
 
@@ -354,6 +372,7 @@ export function MySpacesManager() {
 
     setSavingSpaceId(spaceId)
     setSuccessSpaceId(null)
+    setNotice(null)
     setError(null)
 
     try {
@@ -400,6 +419,68 @@ export function MySpacesManager() {
       )
     } finally {
       setSavingSpaceId(null)
+    }
+  }
+
+  const deleteSpace = async (space: SpaceRow) => {
+    const confirmed = window.confirm(
+      `Delete “${space.space_name}”?\n\nThis permanently removes the space and every booking attached to it. This cannot be undone.`
+    )
+
+    if (!confirmed) return
+
+    setDeletingSpaceId(space.id)
+    setSuccessSpaceId(null)
+    setNotice(null)
+    setError(null)
+
+    try {
+      const supabase = createClient()
+      const { data, error: deleteError } = await supabase.rpc(
+        "delete_owned_space",
+        { p_space_id: space.id }
+      )
+
+      if (deleteError) throw deleteError
+
+      const result = Array.isArray(data) ? data[0] : data
+      const deletedBookings = Number(result?.deleted_bookings ?? 0)
+      const deletedPhotoUrl = String(result?.deleted_photo_url ?? space.photo_url)
+      const photoPath = getPhotoStoragePath(deletedPhotoUrl)
+
+      let photoWarning = ""
+      if (photoPath) {
+        const { error: photoError } = await supabase.storage
+          .from("space-photos")
+          .remove([photoPath])
+
+        if (photoError) {
+          photoWarning = " The listing was deleted, but its uploaded photo could not be removed."
+        }
+      }
+
+      setExpandedSpaceId((current) =>
+        current === space.id ? null : current
+      )
+      setSpaces((current) => current.filter((item) => item.id !== space.id))
+      setDrafts((current) => {
+        const next = { ...current }
+        delete next[space.id]
+        return next
+      })
+      setNotice(
+        `Deleted ${space.space_name} and ${deletedBookings} booking${
+          deletedBookings === 1 ? "" : "s"
+        }.${photoWarning}`
+      )
+    } catch (caughtError) {
+      setError(
+        caughtError instanceof Error
+          ? caughtError.message
+          : "Could not delete this parking space."
+      )
+    } finally {
+      setDeletingSpaceId(null)
     }
   }
 
@@ -462,6 +543,12 @@ export function MySpacesManager() {
         </div>
       )}
 
+      {notice && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-300">
+          {notice}
+        </div>
+      )}
+
       {spaces.length === 0 ? (
         <Card>
           <CardHeader>
@@ -477,6 +564,7 @@ export function MySpacesManager() {
           const draft = drafts[space.id]
           const isExpanded = expandedSpaceId === space.id
           const isSaving = savingSpaceId === space.id
+          const isDeleting = deletingSpaceId === space.id
           const saved = successSpaceId === space.id
 
           if (!draft) return null
@@ -526,7 +614,7 @@ export function MySpacesManager() {
                     </span>
                   </CardContent>
 
-                  <CardFooter className="mt-auto justify-between gap-3 pt-4">
+                  <CardFooter className="mt-auto flex-col items-stretch gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
                     {saved ? (
                       <span className="inline-flex items-center gap-1 text-sm text-emerald-600">
                         <CheckCircle2Icon className="size-4" /> Saved
@@ -536,20 +624,32 @@ export function MySpacesManager() {
                         Space ID #{space.id}
                       </span>
                     )}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        setExpandedSpaceId(isExpanded ? null : space.id)
-                      }
-                    >
-                      {isExpanded ? (
-                        <ChevronUpIcon className="size-4" />
-                      ) : (
-                        <ChevronDownIcon className="size-4" />
-                      )}
-                      {isExpanded ? "Close availability" : "Manage availability"}
-                    </Button>
+                    <div className="flex flex-col gap-2 sm:flex-row">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        disabled={isDeleting || isSaving}
+                        onClick={() => void deleteSpace(space)}
+                      >
+                        <Trash2Icon className="size-4" />
+                        {isDeleting ? "Deleting…" : "Delete space"}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={isDeleting}
+                        onClick={() =>
+                          setExpandedSpaceId(isExpanded ? null : space.id)
+                        }
+                      >
+                        {isExpanded ? (
+                          <ChevronUpIcon className="size-4" />
+                        ) : (
+                          <ChevronDownIcon className="size-4" />
+                        )}
+                        {isExpanded ? "Close availability" : "Manage availability"}
+                      </Button>
+                    </div>
                   </CardFooter>
                 </div>
               </div>
