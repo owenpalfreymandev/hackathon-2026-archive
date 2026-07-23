@@ -33,22 +33,28 @@ export function LoginForm({
   ...props
 }: React.ComponentProps<"div">) {
   const [isLoading, setIsLoading] = useState(false)
+  const [signInError, setSignInError] = useState<string | null>(null)
 
   const handleGoogleSignIn = async () => {
     setIsLoading(true)
+    setSignInError(null)
 
-    const supabase = createClient()
-    const redirectTo = `${window.location.origin}/auth/callback`
+    try {
+      const supabase = createClient()
+      const redirectTo = `${window.location.origin}/auth/callback`
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo,
-      },
-    })
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo,
+        },
+      })
 
-    if (error) {
-      console.error("Google sign-in failed:", error)
+      if (error) throw error
+    } catch {
+      setSignInError(
+        "Google sign-in could not be started. Check your connection and try again."
+      )
       setIsLoading(false)
     }
   }
@@ -76,6 +82,14 @@ export function LoginForm({
                   {!isLoading && <GoogleIcon />}
                   {isLoading ? "Redirecting to Google..." : "Sign in with Google"}
                 </Button>
+                {signInError && (
+                  <p
+                    className="rounded-xl bg-destructive/10 px-3 py-2 text-center text-sm text-destructive"
+                    role="alert"
+                  >
+                    {signInError}
+                  </p>
+                )}
               </Field>
               <Field>
                 <FieldDescription className="text-center text-sm leading-6">

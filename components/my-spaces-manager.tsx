@@ -7,6 +7,7 @@ import {
   ChevronDownIcon,
   ChevronUpIcon,
   Clock3Icon,
+  ExternalLinkIcon,
   MapPinIcon,
   PlusIcon,
   SaveIcon,
@@ -598,10 +599,17 @@ export function MySpacesManager() {
                   </CardHeader>
 
                   <CardContent className="flex flex-wrap gap-2 text-sm text-muted-foreground">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${space.latitude},${space.longitude}`)}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1 font-medium text-foreground transition-colors hover:bg-muted/70 hover:text-primary"
+                      aria-label={`View ${space.space_name} location on a map`}
+                    >
                       <MapPinIcon className="size-3.5" />
-                      {space.latitude}, {space.longitude}
-                    </span>
+                      View location
+                      <ExternalLinkIcon className="size-3" />
+                    </a>
                     <span className="inline-flex items-center gap-1 rounded-full bg-muted px-3 py-1">
                       <Clock3Icon className="size-3.5" />
                       {draft.mode === "always"

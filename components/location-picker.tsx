@@ -1,8 +1,9 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { MapPinIcon } from "lucide-react"
+import { AlertTriangleIcon, MapPinIcon, RefreshCwIcon } from "lucide-react"
 
+import { Button } from "@/components/ui/button"
 import {
   DEFAULT_MAP_ZOOM,
   JERSEY_BOUNDS,
@@ -136,9 +137,10 @@ function loadLeaflet(): Promise<LeafletModule> {
         if (window.L) resolve(window.L)
         else reject(new Error("Leaflet failed to load"))
       })
-      existingScript.addEventListener("error", () =>
+      existingScript.addEventListener("error", () => {
+        existingScript.remove()
         reject(new Error("Leaflet failed to load"))
-      )
+      })
       return
     }
 
@@ -149,7 +151,10 @@ function loadLeaflet(): Promise<LeafletModule> {
       if (window.L) resolve(window.L)
       else reject(new Error("Leaflet failed to load"))
     }
-    script.onerror = () => reject(new Error("Leaflet failed to load"))
+    script.onerror = () => {
+      script.remove()
+      reject(new Error("Leaflet failed to load"))
+    }
     document.body.appendChild(script)
   })
 }
@@ -215,6 +220,8 @@ export function LocationPicker({
   const valueRef = useRef(value)
   const markersRef = useRef(markers)
   const [mapReady, setMapReady] = useState(false)
+  const [mapError, setMapError] = useState(false)
+  const [loadAttempt, setLoadAttempt] = useState(0)
 
   useEffect(() => {
     onChangeRef.current = onChange
@@ -381,7 +388,7 @@ export function LocationPicker({
         setMapReady(true)
       })
       .catch(() => {
-        // Coordinate entry and geolocation still work if map assets fail.
+        if (!cancelled) setMapError(true)
       })
 
     return () => {
@@ -398,7 +405,7 @@ export function LocationPicker({
       searchMarkerRef.current = null
       leafletRef.current = null
     }
-  }, [interactive])
+  }, [interactive, loadAttempt])
 
   useEffect(() => {
     if (!mapReady || !value || !mapRef.current) return
@@ -449,6 +456,35 @@ export function LocationPicker({
             className
           )}
         />
+        {mapError && (
+          <div
+            className="absolute inset-0 grid place-items-center bg-muted/95 p-6 text-center"
+            role="alert"
+          >
+            <div className="max-w-sm space-y-3">
+              <AlertTriangleIcon className="mx-auto size-6 text-amber-600" />
+              <div>
+                <p className="font-medium">The map could not be loaded</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Check your connection and try again. Address search,
+                  coordinates, and current location are still available.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setMapError(false)
+                  setLoadAttempt((attempt) => attempt + 1)
+                }}
+              >
+                <RefreshCwIcon />
+                Retry map
+              </Button>
+            </div>
+          </div>
+        )}
         {interactive && !value && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
             <span className="rounded-full bg-background/95 px-3 py-1 text-xs text-muted-foreground shadow-sm">
