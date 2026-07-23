@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { CheckCircle2Icon } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
@@ -42,6 +42,10 @@ function toDateTimeLocal(value?: string): string {
   return localDate.toISOString().slice(0, 16)
 }
 
+function currentDateTimeLocal(): string {
+  return toDateTimeLocal(new Date().toISOString())
+}
+
 export function BookSpaceForm({
   space,
   initialStartsAt,
@@ -52,6 +56,15 @@ export function BookSpaceForm({
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [bookingId, setBookingId] = useState<string | null>(null)
+  const [minimumStartsAt, setMinimumStartsAt] = useState("")
+
+  useEffect(() => {
+    const updateMinimum = () => setMinimumStartsAt(currentDateTimeLocal())
+    updateMinimum()
+
+    const interval = window.setInterval(updateMinimum, 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   const durationHours = useMemo(() => {
     if (!startsAt || !endsAt) return null
@@ -98,6 +111,11 @@ export function BookSpaceForm({
       return
     }
 
+    if (start.getTime() <= Date.now()) {
+      setError("Choose a start time in the future.")
+      return
+    }
+
     if (totalPrice === null || totalPrice <= 0) {
       setError("This pricing option is not available for the selected space.")
       return
@@ -118,6 +136,10 @@ export function BookSpaceForm({
 
       if (user.id === space.ownerId) {
         throw new Error("You cannot book your own parking space.")
+      }
+
+      if (start.getTime() <= Date.now()) {
+        throw new Error("The selected start time has already passed.")
       }
 
       const { data: availabilityRows, error: availabilityError } = await supabase.rpc(
@@ -220,6 +242,7 @@ export function BookSpaceForm({
               <Input
                 id="starts-at"
                 type="datetime-local"
+                min={minimumStartsAt || undefined}
                 value={startsAt}
                 onChange={(event) => setStartsAt(event.target.value)}
                 required
@@ -231,6 +254,7 @@ export function BookSpaceForm({
               <Input
                 id="ends-at"
                 type="datetime-local"
+                min={startsAt || minimumStartsAt || undefined}
                 value={endsAt}
                 onChange={(event) => setEndsAt(event.target.value)}
                 required
