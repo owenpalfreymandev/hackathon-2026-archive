@@ -1,7 +1,13 @@
 "use client"
 
+import Link from "next/link"
 import { useMemo, useState, type FormEvent } from "react"
-import { CheckCircle2Icon } from "lucide-react"
+import {
+  CalendarClockIcon,
+  CheckCircle2Icon,
+  ExternalLinkIcon,
+  NavigationIcon,
+} from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import {
@@ -27,6 +33,8 @@ type BookSpaceFormProps = {
     pricingType: string
     fixedPrice: number | null
     hourlyPrice: number | null
+    latitude: number
+    longitude: number
   }
   initialStartsAt?: string
   initialEndsAt?: string
@@ -182,6 +190,8 @@ export function BookSpaceForm({
   }
 
   if (bookingId) {
+    const directionsUrl = `https://www.google.com/maps/dir//${space.latitude},${space.longitude}/`
+
     return (
       <Card className="mx-auto w-full max-w-2xl">
         <CardHeader>
@@ -196,6 +206,31 @@ export function BookSpaceForm({
             Booking reference: {bookingId}
           </p>
         </CardContent>
+        <CardFooter className="flex-col gap-2 sm:flex-row sm:justify-end">
+          <Button
+            variant="outline"
+            nativeButton={false}
+            render={<Link href="/dashboard/my-bookings" />}
+          >
+            <CalendarClockIcon />
+            View my bookings
+          </Button>
+          <Button
+            nativeButton={false}
+            render={
+              <a
+                href={directionsUrl}
+                target="_blank"
+                rel="noreferrer"
+                aria-label={`Open directions to ${space.spaceName}`}
+              />
+            }
+          >
+            <NavigationIcon />
+            Take me there
+            <ExternalLinkIcon className="size-3.5" />
+          </Button>
+        </CardFooter>
       </Card>
     )
   }
