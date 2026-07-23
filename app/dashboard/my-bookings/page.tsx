@@ -1,5 +1,11 @@
-import { CalendarDaysIcon, Clock3Icon, NavigationIcon, ParkingSquareIcon } from "lucide-react"
+import {
+  CalendarDaysIcon,
+  Clock3Icon,
+  NavigationIcon,
+  ParkingSquareIcon,
+} from "lucide-react"
 
+import { CancelBookingButton } from "@/components/cancel-booking-button"
 import {
   Card,
   CardContent,
@@ -56,6 +62,22 @@ function directionsUrl(space: Space) {
   return `https://www.google.com/maps/dir//${Number(space.latitude)},${Number(space.longitude)}/`
 }
 
+function statusClassName(status: string) {
+  switch (status) {
+    case "confirmed":
+      return "bg-green-500/10 text-green-700 dark:text-green-400"
+    case "pending":
+      return "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+    case "cancelled":
+    case "rejected":
+      return "bg-destructive/10 text-destructive"
+    case "completed":
+      return "bg-muted text-muted-foreground"
+    default:
+      return "bg-muted text-muted-foreground"
+  }
+}
+
 export default async function MyBookingsPage() {
   const supabase = await createClient()
   const {
@@ -78,19 +100,23 @@ export default async function MyBookingsPage() {
         .select("id, space_name, description, photo_url, latitude, longitude")
         .in("id", spaceIds)
     : { data: [], error: null }
+
   const spaces = new Map(
     ((spaceRows ?? []) as Space[]).map((space) => [space.id, space])
   )
 
   const error = bookingError ?? spaceError
+  const now = Date.now()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-4 md:p-6">
       <div>
-        <p className="text-sm font-medium text-muted-foreground">Parking plans</p>
+        <p className="text-sm font-medium text-muted-foreground">
+          Parking plans
+        </p>
         <h1 className="text-2xl font-semibold tracking-tight">My bookings</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Your confirmed parking spaces and the times they are reserved for.
+          Review upcoming reservations or cancel one before it begins.
         </p>
       </div>
 
@@ -119,26 +145,41 @@ export default async function MyBookingsPage() {
             const space = spaces.get(booking.space_id)
             if (!space) return null
 
-            const schedule = bookingDateRange(booking.starts_at, booking.ends_at)
+            const schedule = bookingDateRange(
+              booking.starts_at,
+              booking.ends_at
+            )
+            const canCancel =
+              (booking.status === "pending" ||
+                booking.status === "confirmed") &&
+              new Date(booking.starts_at).getTime() > now
 
             return (
               <Card key={booking.id} className="h-full">
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <CardTitle className="text-lg">{space.space_name}</CardTitle>
-                        {space.description && (
-                          <CardDescription className="mt-1 line-clamp-2">
-                            {space.description}
-                          </CardDescription>
-                        )}
-                      </div>
-                      <span className="shrink-0 rounded-full bg-green-500/10 px-2.5 py-1 text-xs font-medium capitalize text-green-700 dark:text-green-400">
-                        {booking.status}
-                      </span>
+                <CardHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <CardTitle className="text-lg">
+                        {space.space_name}
+                      </CardTitle>
+                      {space.description && (
+                        <CardDescription className="mt-1 line-clamp-2">
+                          {space.description}
+                        </CardDescription>
+                      )}
                     </div>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
+                    <span
+                      className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusClassName(
+                        booking.status
+                      )}`}
+                    >
+                      {booking.status}
+                    </span>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="space-y-4">
+                  <div className="space-y-3">
                     <div className="flex items-center gap-3 text-sm">
                       <CalendarDaysIcon className="size-4 text-muted-foreground" />
                       <span>{schedule.date}</span>
@@ -147,20 +188,33 @@ export default async function MyBookingsPage() {
                       <Clock3Icon className="size-4 text-muted-foreground" />
                       <span>{schedule.time}</span>
                     </div>
-                    <div className="flex items-center justify-between border-t pt-3 text-sm">
-                      <span className="font-medium">{formatPounds(booking.total_price_pence / 100)}</span>
-                      <a
-                        href={directionsUrl(space)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1.5 font-medium text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
-                        aria-label={`Get directions to ${space.space_name}`}
-                      >
-                        <NavigationIcon className="size-4" />
-                        Take me there
-                      </a>
+                  </div>
+
+                  <div className="flex items-center justify-between border-t pt-3 text-sm">
+                    <span className="font-medium">
+                      {formatPounds(booking.total_price_pence / 100)}
+                    </span>
+                    <a
+                      href={directionsUrl(space)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1.5 font-medium text-primary hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+                      aria-label={`Get directions to ${space.space_name}`}
+                    >
+                      <NavigationIcon className="size-4" />
+                      Take me there
+                    </a>
+                  </div>
+
+                  {canCancel && (
+                    <div className="border-t pt-4">
+                      <CancelBookingButton
+                        bookingId={booking.id}
+                        spaceName={space.space_name}
+                      />
                     </div>
-                  </CardContent>
+                  )}
+                </CardContent>
               </Card>
             )
           })}
