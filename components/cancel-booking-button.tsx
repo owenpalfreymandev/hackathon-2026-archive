@@ -20,9 +20,9 @@ export function CancelBookingButton({
   const [isCancelling, setIsCancelling] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const handleCancel = async () => {
+  async function cancelBooking() {
     const confirmed = window.confirm(
-      `Cancel your booking for ${spaceName}? The space will become available for somebody else.`
+      `Cancel your booking for "${spaceName}"? The space will become available again.`
     )
 
     if (!confirmed) return
@@ -34,9 +34,7 @@ export function CancelBookingButton({
       const supabase = createClient()
       const { error: cancelError } = await supabase.rpc(
         "cancel_own_booking",
-        {
-          p_booking_id: bookingId,
-        }
+        { p_booking_id: bookingId }
       )
 
       if (cancelError) throw cancelError
@@ -46,7 +44,7 @@ export function CancelBookingButton({
       setError(
         caughtError instanceof Error
           ? caughtError.message
-          : "Could not cancel the booking."
+          : "Could not cancel this booking."
       )
     } finally {
       setIsCancelling(false)
@@ -59,7 +57,7 @@ export function CancelBookingButton({
         type="button"
         variant="destructive"
         size="sm"
-        onClick={handleCancel}
+        onClick={cancelBooking}
         disabled={isCancelling}
       >
         {isCancelling ? (
