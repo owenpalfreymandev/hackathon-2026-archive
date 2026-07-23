@@ -15,9 +15,10 @@ export function SiteHeader() {
           variant="ghost"
           size="icon"
           onClick={toggleSidebar}
+          aria-label="Toggle navigation menu"
+          title="Toggle navigation menu"
         >
-          <PanelLeftIcon
-          />
+          <PanelLeftIcon />
         </Button>
       </div>
     </header>
