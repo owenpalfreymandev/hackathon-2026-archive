@@ -60,6 +60,7 @@ export default async function MyBookingsPage() {
     .from("bookings")
     .select("id, space_id, starts_at, ends_at, status, total_price_pence")
     .eq("driver_id", user.id)
+    .is("driver_hidden_at", null)
     .order("starts_at", { ascending: true })
 
   const rawBookings = (bookingRows ?? []) as BookingRow[]
