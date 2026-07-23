@@ -17,10 +17,11 @@ export type LocationMarker = {
   id: string
   lat: number
   lng: number
-  colour?: "red" | "blue" | "amber"
+  colour?: "red" | "blue" | "green" | "amber"
   title?: string
   label?: string
   disabled?: boolean
+  selected?: boolean
 }
 
 type LocationPickerProps = {
@@ -157,7 +158,8 @@ function createPinIcon(
   L: LeafletModule,
   colour: "red" | "blue" | "green" | "amber",
   label?: string,
-  disabled = false
+  disabled = false,
+  selected = false
 ) {
   const colourValue = {
     red: "#dc2626",
@@ -173,7 +175,7 @@ function createPinIcon(
 
   return L.divIcon({
     className: "",
-    html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:${iconWidth}px;height:${iconHeight}px;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.32));">
+    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:${iconWidth}px;height:${iconHeight}px;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.32));transform:${selected ? "scale(1.08)" : "none"};">
       ${
         safeLabel
           ? `<div style="white-space:nowrap;border:2px solid ${colourValue};border-radius:999px;background:white;color:#111827;padding:2px 7px;font:700 12px/1.25 system-ui,sans-serif;margin-bottom:-2px;">${safeLabel}</div>`
@@ -183,6 +185,11 @@ function createPinIcon(
         <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
         <circle cx="12" cy="10" r="3" fill="white"/>
       </svg>
+      ${
+        selected
+          ? '<div style="position:absolute;right:2px;bottom:3px;display:grid;place-items:center;width:18px;height:18px;border:2px solid white;border-radius:999px;background:#111827;color:white;font:800 12px/1 system-ui,sans-serif;">✓</div>'
+          : ""
+      }
     </div>`,
     iconSize: [iconWidth, iconHeight],
     iconAnchor: [iconWidth / 2, iconHeight],
@@ -251,9 +258,9 @@ export function LocationPicker({
 
     searchMarkerRef.current = L.marker([lat, lng], {
       draggable: true,
-      icon: createPinIcon(L, "green"),
-      title: "Your search location",
-      alt: "Your search location",
+      icon: createPinIcon(L, "blue"),
+      title: "Your target location",
+      alt: "Your target location",
     }).addTo(map)
 
     searchMarkerRef.current.on("dragend", () => {
@@ -284,7 +291,8 @@ export function LocationPicker({
           L,
           markerData.colour ?? "red",
           markerData.label,
-          markerData.disabled
+          markerData.disabled,
+          markerData.selected
         ),
         title: markerData.title ?? "Parking space",
         alt: markerData.title ?? "Parking space",
@@ -300,7 +308,7 @@ export function LocationPicker({
     }
 
     const selectedMarker = markersRef.current.find(
-      (marker) => marker.colour === "blue"
+      (marker) => marker.selected
     )
 
     if (valueRef.current && selectedMarker) {
@@ -406,6 +414,33 @@ export function LocationPicker({
 
   return (
     <div className="space-y-2">
+      {interactive && markers.length > 0 && (
+        <div
+          className="flex flex-wrap gap-2 rounded-xl border bg-muted/40 p-3 text-xs font-medium shadow-sm"
+          aria-label="Map pin legend"
+          role="list"
+        >
+          <span className="flex items-center gap-2 rounded-full bg-background px-3 py-1.5" role="listitem">
+            <span className="size-3 rounded-full bg-blue-600 ring-2 ring-blue-600/20" aria-hidden="true" />
+            Blue: your target
+          </span>
+          <span className="flex items-center gap-2 rounded-full bg-background px-3 py-1.5" role="listitem">
+            <span className="size-3 rounded-full bg-green-600 ring-2 ring-green-600/20" aria-hidden="true" />
+            Green: available
+          </span>
+          <span className="flex items-center gap-2 rounded-full bg-background px-3 py-1.5" role="listitem">
+            <span className="size-3 rounded-full bg-amber-600 ring-2 ring-amber-600/20" aria-hidden="true" />
+            Amber: unavailable
+          </span>
+          <span className="flex items-center gap-2 rounded-full bg-background px-3 py-1.5" role="listitem">
+            <span className="grid size-4 place-items-center rounded-full bg-foreground text-[10px] text-background" aria-hidden="true">
+              ✓
+            </span>
+            Check: selected
+          </span>
+        </div>
+      )}
+
       <div className="relative overflow-hidden rounded-md border">
         <div
           ref={containerRef}
@@ -426,14 +461,9 @@ export function LocationPicker({
       {interactive && value ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
-            <MapPinIcon className="size-4 shrink-0 text-green-600" />
+            <MapPinIcon className="size-4 shrink-0 text-blue-600" />
             {value.lat.toFixed(6)}, {value.lng.toFixed(6)}
           </span>
-          {markers.length > 0 && (
-            <span>
-              Green: destination · Red: available · Blue: selected · Amber: unavailable
-            </span>
-          )}
         </div>
       ) : interactive ? (
         <p className="text-sm text-muted-foreground">
