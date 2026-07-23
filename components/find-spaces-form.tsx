@@ -215,9 +215,10 @@ export function FindSpacesForm() {
         id: String(space.id),
         lat: space.coordinates.lat,
         lng: space.coordinates.lng,
-        colour: space.id === selectedSpaceId ? ("blue" as const) : ("red" as const),
+        colour: "green" as const,
         label: getMapPriceLabel(space),
-        title: `${space.space_name} — ${getPriceDetail(space)} — ${formatDistance(space.distanceKm)}`,
+        title: `${space.id === selectedSpaceId ? "Selected: " : ""}${space.space_name} — available — ${getPriceDetail(space)} — ${formatDistance(space.distanceKm)}`,
+        selected: space.id === selectedSpaceId,
       })),
       ...unavailableSpaces.map((space) => ({
         id: `unavailable-${space.id}`,
@@ -635,10 +636,10 @@ export function FindSpacesForm() {
                 <div>
                   <h2 className="font-semibold">Available at your time</h2>
                   <p className="text-sm text-muted-foreground">
-                    Compare the price bubbles on the red pins, then select one.
+                    Compare the price bubbles on the green pins, then select one.
                   </p>
                 </div>
-                <span className="shrink-0 rounded-full bg-red-100 px-3 py-1 text-xs font-medium text-red-700 dark:bg-red-950 dark:text-red-200">
+                <span className="shrink-0 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700 dark:bg-green-950 dark:text-green-200">
                   {availableSpaces.length} available
                 </span>
               </div>
