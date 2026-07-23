@@ -4,6 +4,7 @@ import { useMemo, useState } from "react"
 import {
   CalendarDaysIcon,
   Clock3Icon,
+  EyeIcon,
   ExternalLinkIcon,
   ImageIcon,
   InfoIcon,
@@ -155,20 +156,10 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
           return (
             <Card
               key={booking.id}
-              role="button"
-              tabIndex={0}
-              onClick={() => setSelectedBookingId(booking.id)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault()
-                  setSelectedBookingId(booking.id)
-                }
-              }}
               className={cn(
-                "h-full cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30",
+                "h-full",
                 isPast && "border-muted bg-muted/20 opacity-65"
               )}
-              aria-label={`View booking details for ${booking.spaceName}`}
             >
               {booking.photoUrl ? (
                 <div className="aspect-[16/6] overflow-hidden rounded-t-xl border-b bg-muted">
@@ -243,7 +234,6 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
                     href={directionsUrl(booking)}
                     target="_blank"
                     rel="noreferrer"
-                    onClick={(event) => event.stopPropagation()}
                     className="flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
                   >
                     <NavigationIcon className="size-4" />
@@ -252,10 +242,7 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
                 </div>
 
                 {canCancel && (
-                  <div
-                    className="border-t pt-4"
-                    onClick={(event) => event.stopPropagation()}
-                  >
+                  <div className="border-t pt-4">
                     <CancelBookingButton
                       bookingId={booking.id}
                       spaceName={booking.spaceName}
@@ -263,9 +250,17 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
                   </div>
                 )}
 
-                <p className="border-t pt-3 text-xs text-muted-foreground">
-                  Select this booking for full details
-                </p>
+                <div className="border-t pt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setSelectedBookingId(booking.id)}
+                  >
+                    <EyeIcon />
+                    View booking details
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           )
