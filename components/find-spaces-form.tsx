@@ -194,11 +194,17 @@ export function FindSpacesForm() {
   const [now, setNow] = useState<Date | null>(null)
 
   useEffect(() => {
-    const updateNow = () => setNow(new Date())
-    updateNow()
+    const initialization = window.setTimeout(() => {
+      const initialNow = new Date()
+      setNow(initialNow)
+      setBookingDate(toLocalDateInput(initialNow))
+    }, 0)
 
-    const interval = window.setInterval(updateNow, 60_000)
-    return () => window.clearInterval(interval)
+    const interval = window.setInterval(() => setNow(new Date()), 60_000)
+    return () => {
+      window.clearTimeout(initialization)
+      window.clearInterval(interval)
+    }
   }, [])
 
   const requestedTimes = useMemo(
