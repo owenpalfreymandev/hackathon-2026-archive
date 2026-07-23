@@ -13,6 +13,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
+import { SpaceBookingActivity } from "@/components/space-booking-activity"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -612,6 +613,11 @@ export function MySpacesManager() {
                       {draft.overrides.length} date override
                       {draft.overrides.length === 1 ? "" : "s"}
                     </span>
+
+                    <SpaceBookingActivity
+                      spaceId={space.id}
+                      spaceName={space.space_name}
+                    />
                   </CardContent>
 
                   <CardFooter className="mt-auto flex-col items-stretch gap-3 pt-4 sm:flex-row sm:items-center sm:justify-between">
