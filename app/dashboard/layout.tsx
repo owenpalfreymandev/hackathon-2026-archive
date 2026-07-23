@@ -4,10 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar"
 import { SiteHeader } from "@/components/site-header"
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { createClient } from "@/lib/supabase/server"
-import {
-  getUserAvatarUrl,
-  getUserDisplayName,
-} from "../../lib/user"
+import { getUserAvatarUrl, getUserDisplayName } from "@/lib/user"
 
 export default async function DashboardLayout({
   children,
@@ -15,8 +12,9 @@ export default async function DashboardLayout({
   children: React.ReactNode
 }>) {
   const supabase = await createClient()
-  const { data } = await supabase.auth.getUser()
-  const user = data.user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
   if (!user) {
     redirect("/login")

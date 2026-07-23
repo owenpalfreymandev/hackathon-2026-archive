@@ -47,7 +47,6 @@ export function BookSpaceForm({
   initialStartsAt,
   initialEndsAt,
 }: BookSpaceFormProps) {
-  const router = useRouter()
   const [startsAt, setStartsAt] = useState(() => toDateTimeLocal(initialStartsAt))
   const [endsAt, setEndsAt] = useState(() => toDateTimeLocal(initialEndsAt))
   const [isSubmitting, setIsSubmitting] = useState(false)
