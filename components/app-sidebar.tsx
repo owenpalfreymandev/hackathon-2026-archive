@@ -3,17 +3,14 @@
 import * as React from "react"
 import Link from "next/link"
 import {
-  LifeBuoyIcon,
   MapIcon,
   PinIcon,
-  SendIcon,
   TerminalIcon,
   CarFrontIcon,
   CalendarClockIcon,
 } from "lucide-react"
 
 import { NavMain } from "@/components/nav-main"
-import { NavSecondary } from "@/components/nav-secondary"
 import { NavUser } from "@/components/nav-user"
 import {
   Sidebar,
@@ -47,18 +44,6 @@ const data = {
       title: "My Bookings",
       url: dashboardLinks.myBookings,
       icon: <CalendarClockIcon />,
-    },
-  ],
-  navSecondary: [
-    {
-      title: "Support",
-      url: "#",
-      icon: <LifeBuoyIcon />,
-    },
-    {
-      title: "Feedback",
-      url: "#",
-      icon: <SendIcon />,
     },
   ],
 }
@@ -98,7 +83,6 @@ export function AppSidebar({
       </SidebarHeader>
       <SidebarContent>
         <NavMain items={data.navMain} />
-        <NavSecondary items={data.navSecondary} className="mt-auto" />
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={user} />
