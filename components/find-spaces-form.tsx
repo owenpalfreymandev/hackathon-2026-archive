@@ -1,7 +1,7 @@
 "use client"
 
 import dynamic from "next/dynamic"
-import { useMemo, useState, type FormEvent } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
 import {
   AlertTriangleIcon,
@@ -161,6 +161,16 @@ function buildRequestedTimes(
   return { startsAt, endsAt }
 }
 
+function toLocalDateInput(date: Date): string {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(0, 10)
+}
+
+function toLocalTimeInput(date: Date): string {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60_000)
+  return localDate.toISOString().slice(11, 16)
+}
+
 export function FindSpacesForm() {
   const router = useRouter()
   const [address, setAddress] = useState("")
@@ -178,6 +188,15 @@ export function FindSpacesForm() {
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(false)
   const [hasSearched, setHasSearched] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [now, setNow] = useState<Date | null>(null)
+
+  useEffect(() => {
+    const updateNow = () => setNow(new Date())
+    updateNow()
+
+    const interval = window.setInterval(updateNow, 60_000)
+    return () => window.clearInterval(interval)
+  }, [])
 
   const requestedTimes = useMemo(
     () => buildRequestedTimes(bookingDate, startTime, endTime),
@@ -314,6 +333,11 @@ export function FindSpacesForm() {
 
     if (!requestedTimes) {
       setError("Choose a valid date, start time and end time before searching.")
+      return
+    }
+
+    if (requestedTimes.startsAt.getTime() <= Date.now()) {
+      setError("Choose a start time in the future.")
       return
     }
 
@@ -535,6 +559,7 @@ export function FindSpacesForm() {
                   <Input
                     id="booking-date"
                     type="date"
+                    min={now ? toLocalDateInput(now) : undefined}
                     value={bookingDate}
                     onChange={(event) =>
                       updateAvailabilityInput(setBookingDate, event.target.value)
@@ -548,6 +573,11 @@ export function FindSpacesForm() {
                     id="start-time"
                     type="time"
                     step={900}
+                    min={
+                      now && bookingDate === toLocalDateInput(now)
+                        ? toLocalTimeInput(now)
+                        : undefined
+                    }
                     value={startTime}
                     onChange={(event) =>
                       updateAvailabilityInput(setStartTime, event.target.value)
