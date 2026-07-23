@@ -83,6 +83,8 @@ export default async function BookSpacePage({
           pricingType: space.pricing_type,
           fixedPrice: space.fixed_price,
           hourlyPrice: space.hourly_price,
+          latitude: Number(space.latitude),
+          longitude: Number(space.longitude),
         }}
         initialStartsAt={initialStartsAt}
         initialEndsAt={initialEndsAt}
