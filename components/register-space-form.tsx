@@ -34,7 +34,13 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
-import { LocateFixedIcon, MapPinIcon, SearchIcon } from "lucide-react"
+import {
+  CameraIcon,
+  ImageIcon,
+  LocateFixedIcon,
+  MapPinIcon,
+  SearchIcon,
+} from "lucide-react"
 
 type PricingType = "fixed" | "hourly" | "both"
 
@@ -87,7 +93,10 @@ export function RegisterSpaceForm() {
   const handlePhotoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null
     setPhotoFile(file)
-    setPhotoPreview(file ? URL.createObjectURL(file) : null)
+    setPhotoPreview((currentPreview) => {
+      if (currentPreview) URL.revokeObjectURL(currentPreview)
+      return file ? URL.createObjectURL(file) : null
+    })
   }
 
   const handleApplyCoordinates = () => {
@@ -337,19 +346,57 @@ export function RegisterSpaceForm() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="space-photo">Photo</FieldLabel>
-              <Input
-                id="space-photo"
-                type="file"
-                accept="image/*"
-                onChange={handlePhotoChange}
-                required
-              />
+              <FieldLabel>Photo of your parking space</FieldLabel>
+              <FieldDescription>
+                Take a clear photo of the actual space you are registering.
+                Include the entrance and any markings so drivers can recognise
+                where to park.
+              </FieldDescription>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label
+                  htmlFor="space-camera"
+                  className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed bg-muted/30 px-4 py-3 text-center transition-colors hover:bg-muted/60"
+                >
+                  <CameraIcon className="size-6" />
+                  <span className="text-sm font-medium">Take a photo</span>
+                  <span className="text-xs text-muted-foreground">
+                    Opens your device camera
+                  </span>
+                </label>
+                <Input
+                  id="space-camera"
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  onChange={handlePhotoChange}
+                  className="sr-only"
+                />
+
+                <label
+                  htmlFor="space-photo"
+                  className="flex min-h-24 cursor-pointer flex-col items-center justify-center gap-2 rounded-md border border-dashed px-4 py-3 text-center transition-colors hover:bg-muted/60"
+                >
+                  <ImageIcon className="size-6" />
+                  <span className="text-sm font-medium">
+                    Choose an existing photo
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Select from your camera roll
+                  </span>
+                </label>
+                <Input
+                  id="space-photo"
+                  type="file"
+                  accept="image/*"
+                  onChange={handlePhotoChange}
+                  className="sr-only"
+                />
+              </div>
               {photoPreview && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={photoPreview}
-                  alt="Space preview"
+                  alt="Preview of the parking space"
                   className="mt-2 h-40 w-full rounded-md object-cover"
                 />
               )}
