@@ -545,7 +545,7 @@ export function FindSpacesForm() {
                 </Button>
               </div>
               <FieldDescription>
-                You can also click or drag the green pin on the map.
+                You can also click the map or drag the blue target pin.
               </FieldDescription>
             </Field>
           </FieldGroup>
