@@ -211,6 +211,19 @@ export function FindSpacesForm() {
     () => buildRequestedTimes(bookingDate, startTime, endTime),
     [bookingDate, startTime, endTime]
   )
+  const timeValidationError = useMemo(() => {
+    if (!bookingDate || !startTime || !endTime) return null
+
+    if (!requestedTimes) {
+      return "The end time must be later than the start time."
+    }
+
+    if (now && requestedTimes.startsAt.getTime() <= now.getTime()) {
+      return "Choose a start time in the future."
+    }
+
+    return null
+  }, [bookingDate, endTime, now, requestedTimes, startTime])
 
   const selectedSpace =
     availableSpaces.find((space) => space.id === selectedSpaceId) ?? null
@@ -595,6 +608,9 @@ export function FindSpacesForm() {
                         : undefined
                     }
                     value={startTime}
+                    aria-invalid={
+                      timeValidationError === "Choose a start time in the future."
+                    }
                     onChange={(event) =>
                       updateAvailabilityInput(setStartTime, event.target.value)
                     }
@@ -608,6 +624,10 @@ export function FindSpacesForm() {
                     type="time"
                     step={900}
                     value={endTime}
+                    aria-invalid={
+                      timeValidationError ===
+                      "The end time must be later than the start time."
+                    }
                     onChange={(event) =>
                       updateAvailabilityInput(setEndTime, event.target.value)
                     }
@@ -615,6 +635,11 @@ export function FindSpacesForm() {
                   />
                 </Field>
               </div>
+              {timeValidationError && (
+                <p className="mt-3 text-sm text-destructive" role="alert">
+                  {timeValidationError}
+                </p>
+              )}
             </div>
           )}
 
@@ -623,7 +648,12 @@ export function FindSpacesForm() {
               type="button"
               size="lg"
               onClick={handleFindSpaces}
-              disabled={!location || !requestedTimes || isLoadingSpaces}
+              disabled={
+                !location ||
+                !requestedTimes ||
+                Boolean(timeValidationError) ||
+                isLoadingSpaces
+              }
             >
               <NavigationIcon />
               {isLoadingSpaces ? "Checking availability…" : "Find available spaces"}
