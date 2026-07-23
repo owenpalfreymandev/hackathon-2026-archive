@@ -1,3 +1,5 @@
+import { LocationPicker } from "@/components/location-picker"
+
 type BookingLocationMapProps = {
   latitude: number
   longitude: number
@@ -9,27 +11,24 @@ export function BookingLocationMap({
   longitude,
   spaceName,
 }: BookingLocationMapProps) {
-  const latitudeSpan = 0.0035
-  const longitudeSpan = 0.006
-  const bbox = [
-    longitude - longitudeSpan,
-    latitude - latitudeSpan,
-    longitude + longitudeSpan,
-    latitude + latitudeSpan,
-  ].join(",")
-
-  const source = `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(
-    bbox
-  )}&layer=mapnik&marker=${encodeURIComponent(`${latitude},${longitude}`)}`
-
   return (
-    <div className="overflow-hidden rounded-xl border bg-muted">
-      <iframe
-        title={`Map showing ${spaceName}`}
-        src={source}
-        className="h-72 w-full"
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
+    <div
+      className="overflow-hidden rounded-xl border bg-muted"
+      aria-label={`Map showing ${spaceName}`}
+    >
+      <LocationPicker
+        value={null}
+        interactive={false}
+        className="h-72"
+        markers={[
+          {
+            id: `booking-${latitude}-${longitude}`,
+            lat: latitude,
+            lng: longitude,
+            colour: "blue",
+            title: spaceName,
+          },
+        ]}
       />
     </div>
   )

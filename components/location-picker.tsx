@@ -5,10 +5,13 @@ import { MapPinIcon } from "lucide-react"
 
 import {
   DEFAULT_MAP_ZOOM,
+  JERSEY_BOUNDS,
   JERSEY_CENTER,
   PIN_MAP_ZOOM,
+  isWithinJersey,
   type Coordinates,
 } from "@/lib/coordinates"
+import { cn } from "@/lib/utils"
 
 export type LocationMarker = {
   id: string
@@ -22,9 +25,11 @@ export type LocationMarker = {
 
 type LocationPickerProps = {
   value: Coordinates | null
-  onChange: (coords: Coordinates) => void
+  onChange?: (coords: Coordinates) => void
   markers?: LocationMarker[]
   onMarkerClick?: (id: string) => void
+  interactive?: boolean
+  className?: string
 }
 
 const LEAFLET_CSS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -32,6 +37,8 @@ const LEAFLET_JS = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
 
 type LeafletMap = {
   setView: (coords: [number, number], zoom: number) => LeafletMap
+  setMaxBounds: (bounds: Array<[number, number]>) => LeafletMap
+  setMinZoom: (zoom: number) => LeafletMap
   fitBounds: (
     bounds: Array<[number, number]>,
     options?: { padding?: [number, number]; maxZoom?: number }
@@ -57,7 +64,14 @@ type LeafletPolyline = {
 }
 
 type LeafletModule = {
-  map: (element: HTMLElement) => LeafletMap
+  map: (
+    element: HTMLElement,
+    options?: {
+      maxBounds?: Array<[number, number]>
+      maxBoundsViscosity?: number
+      minZoom?: number
+    }
+  ) => LeafletMap
   tileLayer: (
     url: string,
     options: { attribution: string }
@@ -180,6 +194,8 @@ export function LocationPicker({
   onChange,
   markers = [],
   onMarkerClick,
+  interactive = true,
+  className,
 }: LocationPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<LeafletMap | null>(null)
@@ -193,10 +209,12 @@ export function LocationPicker({
   const markersRef = useRef(markers)
   const [mapReady, setMapReady] = useState(false)
 
-  onChangeRef.current = onChange
-  onMarkerClickRef.current = onMarkerClick
-  valueRef.current = value
-  markersRef.current = markers
+  useEffect(() => {
+    onChangeRef.current = onChange
+    onMarkerClickRef.current = onMarkerClick
+    valueRef.current = value
+    markersRef.current = markers
+  }, [markers, onChange, onMarkerClick, value])
 
   const fitMapToContent = (map: LeafletMap) => {
     const points: Array<[number, number]> = []
@@ -240,7 +258,10 @@ export function LocationPicker({
 
     searchMarkerRef.current.on("dragend", () => {
       const position = searchMarkerRef.current!.getLatLng()
-      onChangeRef.current({ lat: position.lat, lng: position.lng })
+      const coordinates = { lat: position.lat, lng: position.lng }
+      if (isWithinJersey(coordinates)) {
+        onChangeRef.current?.(coordinates)
+      }
     })
   }
 
@@ -312,10 +333,18 @@ export function LocationPicker({
         const initialZoom = valueRef.current
           ? PIN_MAP_ZOOM
           : DEFAULT_MAP_ZOOM
-        const map = L.map(containerRef.current).setView(
-          [initial.lat, initial.lng],
-          initialZoom
-        )
+        const jerseyBounds: Array<[number, number]> = [
+          [JERSEY_BOUNDS.south, JERSEY_BOUNDS.west],
+          [JERSEY_BOUNDS.north, JERSEY_BOUNDS.east],
+        ]
+        const map = L.map(containerRef.current, {
+          maxBounds: jerseyBounds,
+          maxBoundsViscosity: 1,
+          minZoom: DEFAULT_MAP_ZOOM,
+        })
+          .setMaxBounds(jerseyBounds)
+          .setMinZoom(DEFAULT_MAP_ZOOM)
+          .setView([initial.lat, initial.lng], initialZoom)
 
         L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
           attribution:
@@ -324,17 +353,22 @@ export function LocationPicker({
 
         mapRef.current = map
 
-        if (valueRef.current) {
+        if (interactive && valueRef.current) {
           placeSearchMarker(valueRef.current.lat, valueRef.current.lng, map)
         }
 
         renderSpaceMarkers(map)
 
-        map.on("click", (event) => {
-          const { lat, lng } = event.latlng
-          placeSearchMarker(lat, lng, map)
-          onChangeRef.current({ lat, lng })
-        })
+        if (interactive) {
+          map.on("click", (event) => {
+            const { lat, lng } = event.latlng
+            const coordinates = { lat, lng }
+            if (!isWithinJersey(coordinates)) return
+
+            placeSearchMarker(lat, lng, map)
+            onChangeRef.current?.(coordinates)
+          })
+        }
 
         setMapReady(true)
       })
@@ -356,7 +390,7 @@ export function LocationPicker({
       searchMarkerRef.current = null
       leafletRef.current = null
     }
-  }, [])
+  }, [interactive])
 
   useEffect(() => {
     if (!mapReady || !value || !mapRef.current) return
@@ -375,9 +409,12 @@ export function LocationPicker({
       <div className="relative overflow-hidden rounded-md border">
         <div
           ref={containerRef}
-          className="h-96 w-full [&_.leaflet-control-attribution]:text-[10px]"
+          className={cn(
+            "h-96 w-full [&_.leaflet-control-attribution]:text-[10px]",
+            className
+          )}
         />
-        {!value && (
+        {interactive && !value && (
           <div className="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
             <span className="rounded-full bg-background/95 px-3 py-1 text-xs text-muted-foreground shadow-sm">
               Click the map to choose a location
@@ -386,7 +423,7 @@ export function LocationPicker({
         )}
       </div>
 
-      {value ? (
+      {interactive && value ? (
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
           <span className="flex items-center gap-1.5">
             <MapPinIcon className="size-4 shrink-0 text-green-600" />
@@ -398,11 +435,11 @@ export function LocationPicker({
             </span>
           )}
         </div>
-      ) : (
+      ) : interactive ? (
         <p className="text-sm text-muted-foreground">
           Drag the green pin or click the map to choose your search point.
         </p>
-      )}
+      ) : null}
     </div>
   )
 }
