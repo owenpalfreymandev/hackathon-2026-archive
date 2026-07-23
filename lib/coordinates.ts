@@ -6,8 +6,25 @@ export type Coordinates = {
 /** Default map view: Jersey, Channel Islands */
 export const JERSEY_CENTER: Coordinates = { lat: 49.214, lng: -2.131 }
 
+/** A small padded boundary around Jersey shared by every location input and map. */
+export const JERSEY_BOUNDS = {
+  south: 49.155,
+  west: -2.27,
+  north: 49.285,
+  east: -2.0,
+} as const
+
 export const DEFAULT_MAP_ZOOM = 11
 export const PIN_MAP_ZOOM = 15
+
+export function isWithinJersey({ lat, lng }: Coordinates): boolean {
+  return (
+    lat >= JERSEY_BOUNDS.south &&
+    lat <= JERSEY_BOUNDS.north &&
+    lng >= JERSEY_BOUNDS.west &&
+    lng <= JERSEY_BOUNDS.east
+  )
+}
 
 type ParseResult =
   | { ok: true; coordinates: Coordinates }
@@ -99,11 +116,17 @@ export function parseGoogleMapsCoordinates(input: string): ParseResult {
 
   const dms = parseDmsComponents(trimmed)
   if (dms && isValidCoordinates(dms.lat, dms.lng)) {
+    if (!isWithinJersey(dms)) {
+      return { ok: false, error: "Choose a location in Jersey." }
+    }
     return { ok: true, coordinates: dms }
   }
 
   const decimal = parseDecimalCoordinates(trimmed)
   if (decimal) {
+    if (!isWithinJersey(decimal)) {
+      return { ok: false, error: "Choose a location in Jersey." }
+    }
     return { ok: true, coordinates: decimal }
   }
 

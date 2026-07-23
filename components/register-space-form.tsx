@@ -21,8 +21,11 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field"
-import type { Coordinates } from "@/lib/coordinates"
-import { parseGoogleMapsCoordinates } from "@/lib/coordinates"
+import {
+  isWithinJersey,
+  parseGoogleMapsCoordinates,
+  type Coordinates,
+} from "@/lib/coordinates"
 import {
   Select,
   SelectContent,
@@ -159,10 +162,16 @@ export function RegisterSpaceForm() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        setCoordinates({
+        const coordinates = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        })
+        }
+        if (!isWithinJersey(coordinates)) {
+          setError("Your current location is outside Jersey.")
+          setIsLocating(false)
+          return
+        }
+        setCoordinates(coordinates)
         setIsLocating(false)
       },
       () => {

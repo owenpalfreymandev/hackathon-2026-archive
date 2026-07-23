@@ -31,8 +31,11 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import type { LocationMarker } from "@/components/location-picker"
-import type { Coordinates } from "@/lib/coordinates"
-import { parseGoogleMapsCoordinates } from "@/lib/coordinates"
+import {
+  isWithinJersey,
+  parseGoogleMapsCoordinates,
+  type Coordinates,
+} from "@/lib/coordinates"
 import {
   distanceBetweenKm,
   formatDistance,
@@ -312,10 +315,16 @@ export function FindSpacesForm() {
 
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        updateLocation({
+        const coordinates = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
-        })
+        }
+        if (!isWithinJersey(coordinates)) {
+          setError("Your current location is outside Jersey.")
+          setIsLocating(false)
+          return
+        }
+        updateLocation(coordinates)
         setIsLocating(false)
       },
       () => {
