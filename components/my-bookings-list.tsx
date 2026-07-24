@@ -18,7 +18,7 @@ import {
 import type { BookingDetails } from "@/app/dashboard/my-bookings/page"
 import { BookingLocationMap } from "@/components/booking-location-map"
 import { CancelBookingButton } from "@/components/cancel-booking-button"
-import { RemoveCancelledBookingButton } from "@/components/remove-cancelled-booking-button"
+import { RemoveBookingButton } from "@/components/remove-booking-button"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -280,11 +280,12 @@ export function MyBookingsList({ bookings }: MyBookingsListProps) {
                   </div>
                 )}
 
-                {booking.status === "cancelled" && (
+                {(booking.status === "cancelled" || isPast) && (
                   <div className="border-t pt-4">
-                    <RemoveCancelledBookingButton
+                    <RemoveBookingButton
                       bookingId={booking.id}
                       spaceName={booking.spaceName}
+                      bookingState={isPast ? "past" : "cancelled"}
                       onRemoved={handleBookingRemoved}
                     />
                   </div>
