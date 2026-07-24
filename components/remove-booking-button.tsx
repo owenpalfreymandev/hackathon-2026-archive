@@ -6,23 +6,25 @@ import { Loader2Icon, Trash2Icon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 
-type RemoveCancelledBookingButtonProps = {
+type RemoveBookingButtonProps = {
   bookingId: string
   spaceName: string
+  bookingState: "cancelled" | "past"
   onRemoved: (bookingId: string) => void
 }
 
-export function RemoveCancelledBookingButton({
+export function RemoveBookingButton({
   bookingId,
   spaceName,
+  bookingState,
   onRemoved,
-}: RemoveCancelledBookingButtonProps) {
+}: RemoveBookingButtonProps) {
   const [isRemoving, setIsRemoving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   async function removeBooking() {
     const confirmed = window.confirm(
-      `Remove the cancelled booking for "${spaceName}" from My Bookings?`
+      `Remove this ${bookingState} booking for "${spaceName}" from My Bookings?`
     )
 
     if (!confirmed) return
@@ -33,7 +35,7 @@ export function RemoveCancelledBookingButton({
     try {
       const supabase = createClient()
       const { error: removeError } = await supabase.rpc(
-        "dismiss_cancelled_booking",
+        "dismiss_own_booking",
         { p_booking_id: bookingId }
       )
 
