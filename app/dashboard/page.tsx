@@ -51,6 +51,14 @@ type ActivityItem = {
   icon: ComponentType<{ className?: string }>
 }
 
+type ActivityRow = {
+  id: number
+  action: string
+  title: string
+  description: string | null
+  created_at: string
+}
+
 const dateFormatter = new Intl.DateTimeFormat("en-GB", {
   weekday: "short",
   day: "numeric",
@@ -103,13 +111,14 @@ export default async function DashboardPage() {
 
   if (!user) return null
 
-  const now = Date.now()
+  const now = new Date().getTime()
   const displayName = getUserDisplayName(user)
   const firstName = displayName.split(/\s+/)[0] || displayName
 
   const [
     { data: ownedSpaceRows, error: ownedSpacesError },
     { data: driverBookingRows, error: driverBookingsError },
+    { data: activityRows },
   ] = await Promise.all([
     supabase
       .from("spaces")
@@ -121,6 +130,12 @@ export default async function DashboardPage() {
       .select("id, space_id, starts_at, ends_at, status, total_price_pence")
       .eq("driver_id", user.id)
       .order("starts_at", { ascending: true }),
+    supabase
+      .from("user_activity")
+      .select("id, action, title, description, created_at")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(5),
   ])
 
   const ownedSpaces = (ownedSpaceRows ?? []) as SpaceRow[]
@@ -184,7 +199,7 @@ export default async function DashboardPage() {
   const nextDriverBooking = upcomingDriverBookings[0] ?? null
   const nextOwnerBooking = activeOwnerBookings[0] ?? null
 
-  const activity: ActivityItem[] = [
+  const fallbackActivity: ActivityItem[] = [
     ...ownedSpaces.slice(0, 4).map((space) => ({
       key: `space-${space.id}`,
       title: `You registered ${space.space_name}`,
@@ -219,6 +234,23 @@ export default async function DashboardPage() {
   ]
     .sort((first, second) => second.timestamp - first.timestamp)
     .slice(0, 5)
+
+  const persistedActivity = ((activityRows ?? []) as ActivityRow[]).map(
+    (item): ActivityItem => ({
+      key: `activity-${item.id}`,
+      title: item.title,
+      description:
+        item.description ?? dateFormatter.format(new Date(item.created_at)),
+      timestamp: new Date(item.created_at).getTime(),
+      icon: item.action.startsWith("space_")
+        ? ParkingSquareIcon
+        : CalendarClockIcon,
+    })
+  )
+
+  // Keep the dashboard useful while the activity migration is being deployed.
+  const activity =
+    persistedActivity.length > 0 ? persistedActivity : fallbackActivity
 
   const hasLoadError =
     ownedSpacesError || driverBookingsError || ownerBookingsError
