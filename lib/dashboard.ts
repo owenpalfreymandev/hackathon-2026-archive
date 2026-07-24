@@ -1,5 +1,6 @@
 export const dashboardLinks = {
   home: "/dashboard",
+  history: "/dashboard/history",
   findSpaces: "/dashboard/find-spaces",
   registerSpace: "/dashboard/register-space",
   mySpaces: "/dashboard/my-spaces",
@@ -42,6 +43,10 @@ const routeInfo: Record<string, DashboardRouteInfo> = {
   "find-spaces": {
     title: "Find Spaces",
     description: "Search for and compare nearby private parking spaces.",
+  },
+  history: {
+    title: "Activity History",
+    description: "Review the complete history of actions across your account.",
   },
   "register-space": {
     title: "Register Space",

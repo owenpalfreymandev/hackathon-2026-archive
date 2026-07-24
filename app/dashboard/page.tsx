@@ -390,51 +390,63 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <ActivityIcon className="size-5 text-primary" />
-              <CardTitle className="text-lg">Latest activity</CardTitle>
-            </div>
-            <CardDescription>
-              Recent listings and booking activity across your account.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {activity.length === 0 ? (
-              <div className="rounded-xl border border-dashed p-6 text-center">
-                <p className="font-medium">Nothing here yet</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Register or book a space to start building your activity
-                  history.
-                </p>
+        <Link
+          href={dashboardLinks.history}
+          className="group rounded-[24px] focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+          aria-label="View full activity history"
+        >
+          <Card className="h-full transition group-hover:border-primary/40 group-hover:bg-muted/20">
+            <CardHeader>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ActivityIcon className="size-5 text-primary" />
+                  <CardTitle className="text-lg">Latest activity</CardTitle>
+                </div>
+                <span className="flex items-center gap-1 text-sm font-medium text-primary">
+                  View full history
+                  <ArrowRightIcon className="size-4 transition group-hover:translate-x-0.5" />
+                </span>
               </div>
-            ) : (
-              <div className="divide-y">
-                {activity.map((item) => {
-                  const Icon = item.icon
+              <CardDescription>
+                Recent listings and booking activity across your account.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {activity.length === 0 ? (
+                <div className="rounded-xl border border-dashed p-6 text-center">
+                  <p className="font-medium">Nothing here yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Register or book a space to start building your activity
+                    history.
+                  </p>
+                </div>
+              ) : (
+                <div className="divide-y">
+                  {activity.map((item) => {
+                    const Icon = item.icon
 
-                  return (
-                    <div
-                      key={item.key}
-                      className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
-                    >
-                      <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
-                        <Icon className="size-4" />
+                    return (
+                      <div
+                        key={item.key}
+                        className="flex items-start gap-3 py-3 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+                          <Icon className="size-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{item.title}</p>
+                          <p className="mt-0.5 text-sm capitalize text-muted-foreground">
+                            {item.description}
+                          </p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <p className="truncate font-medium">{item.title}</p>
-                        <p className="mt-0.5 text-sm capitalize text-muted-foreground">
-                          {item.description}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                    )
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </Link>
       </section>
     </div>
   )
