@@ -180,7 +180,7 @@ function createPinIcon(
 
   return L.divIcon({
     className: "",
-    html: `<div style="position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:${iconWidth}px;height:${iconHeight}px;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.32));transform:${selected ? "scale(1.08)" : "none"};">
+    html: `<div style="display:flex;flex-direction:column;align-items:center;justify-content:flex-end;width:${iconWidth}px;height:${iconHeight}px;opacity:${opacity};filter:drop-shadow(0 2px 4px rgba(0,0,0,0.32));transform:${selected ? "scale(1.08)" : "none"};">
       ${
         safeLabel
           ? `<div style="white-space:nowrap;border:2px solid ${colourValue};border-radius:999px;background:white;color:#111827;padding:2px 7px;font:700 12px/1.25 system-ui,sans-serif;margin-bottom:-2px;">${safeLabel}</div>`
@@ -188,13 +188,12 @@ function createPinIcon(
       }
       <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="${colourValue}" stroke="white" stroke-width="1.5" aria-hidden="true">
         <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
-        <circle cx="12" cy="10" r="3" fill="white"/>
+        ${
+          selected
+            ? '<circle cx="12" cy="10" r="4" fill="#111827"/><path d="m10 10 1.3 1.3L14.5 8" fill="none" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>'
+            : '<circle cx="12" cy="10" r="3" fill="white"/>'
+        }
       </svg>
-      ${
-        selected
-          ? '<div style="position:absolute;right:2px;bottom:3px;display:grid;place-items:center;width:18px;height:18px;border:2px solid white;border-radius:999px;background:#111827;color:white;font:800 12px/1 system-ui,sans-serif;">✓</div>'
-          : ""
-      }
     </div>`,
     iconSize: [iconWidth, iconHeight],
     iconAnchor: [iconWidth / 2, iconHeight],
