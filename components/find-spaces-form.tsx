@@ -234,7 +234,8 @@ export function FindSpacesForm() {
         id: String(space.id),
         lat: space.coordinates.lat,
         lng: space.coordinates.lng,
-        colour: "green" as const,
+        colour:
+          space.id === selectedSpaceId ? ("blue" as const) : ("green" as const),
         label: getMapPriceLabel(space),
         title: `${space.id === selectedSpaceId ? "Selected: " : ""}${space.space_name} — available — ${getPriceDetail(space)} — ${formatDistance(space.distanceKm)}`,
         selected: space.id === selectedSpaceId,
